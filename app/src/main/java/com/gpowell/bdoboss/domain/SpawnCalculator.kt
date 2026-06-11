@@ -21,11 +21,11 @@ object SpawnCalculator {
             val date: LocalDate = today.plusDays(offset)
             val dow: DayOfWeek = date.dayOfWeek
             for (slot in schedule.slots) {
-                if (slot.day != dow.name) continue
+                if (slot.day != dow) continue
                 val at = ZonedDateTime.of(date, LocalTime.parse(slot.time), zone).toInstant()
                 if (at > now) byInstant.getOrPut(at) { mutableListOf() }.addAll(slot.bosses)
             }
         }
-        return byInstant.entries.take(count).map { Spawn(it.key, it.value) }
+        return byInstant.entries.take(count).map { Spawn(it.key, it.value.toList()) }
     }
 }

@@ -1,8 +1,10 @@
 package com.gpowell.bdoboss
 
 import com.gpowell.bdoboss.data.Schedule
+import com.gpowell.bdoboss.data.SpawnSlot
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -35,10 +37,11 @@ class ScheduleParsingTest {
         }
     }
 
-    @Test fun `every slot day is a valid DayOfWeek name`() {
-        val s = load()
-        val days = java.time.DayOfWeek.entries.map { it.name }.toSet()
-        assertTrue(s.slots.all { it.day in days })
+    @Test fun `invalid day name fails to parse`() {
+        val json = """{"day": "FUNDAY", "time": "03:00", "bosses": ["Kzarka"]}"""
+        assertThrows(IllegalArgumentException::class.java) {
+            Json.decodeFromString(SpawnSlot.serializer(), json)
+        }
     }
 
     @Test fun `vell spawns exactly twice a week`() {

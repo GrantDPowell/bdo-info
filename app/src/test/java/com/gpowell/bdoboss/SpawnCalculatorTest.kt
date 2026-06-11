@@ -6,6 +6,7 @@ import com.gpowell.bdoboss.domain.SpawnCalculator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -15,8 +16,8 @@ class SpawnCalculatorTest {
         region = "NA", timezone = "America/Los_Angeles", version = 1,
         bosses = listOf("Kzarka", "Vell"),
         slots = listOf(
-            SpawnSlot("MONDAY", "03:00", listOf("Kzarka")),
-            SpawnSlot("SUNDAY", "14:00", listOf("Vell")),
+            SpawnSlot(DayOfWeek.MONDAY, "03:00", listOf("Kzarka")),
+            SpawnSlot(DayOfWeek.SUNDAY, "14:00", listOf("Vell")),
         ),
     )
     private val la = ZoneId.of("America/Los_Angeles")
@@ -58,12 +59,19 @@ class SpawnCalculatorTest {
             region = "NA", timezone = "America/Los_Angeles", version = 1,
             bosses = listOf("Kzarka", "Kutum"),
             slots = listOf(
-                SpawnSlot("MONDAY", "03:00", listOf("Kzarka")),
-                SpawnSlot("MONDAY", "03:00", listOf("Kutum")),
+                SpawnSlot(DayOfWeek.MONDAY, "03:00", listOf("Kzarka")),
+                SpawnSlot(DayOfWeek.MONDAY, "03:00", listOf("Kutum")),
             ),
         )
         val now = ZonedDateTime.of(2026, 6, 8, 1, 0, 0, 0, la).toInstant()
         val spawns = SpawnCalculator.upcoming(merged, now, count = 1)
         assertEquals(setOf("Kzarka", "Kutum"), spawns[0].bosses.toSet())
+    }
+
+    @Test fun `spawn exactly at now is excluded - strictly after contract`() {
+        // now == Kzarka's Mon 03:00 slot → that occurrence is skipped, next is a week out.
+        val now = ZonedDateTime.of(2026, 6, 8, 3, 0, 0, 0, la).toInstant()
+        val kzarka = SpawnCalculator.upcoming(schedule, now, count = 5).first { "Kzarka" in it.bosses }
+        assertEquals(ZonedDateTime.of(2026, 6, 15, 3, 0, 0, 0, la).toInstant(), kzarka.at)
     }
 }
