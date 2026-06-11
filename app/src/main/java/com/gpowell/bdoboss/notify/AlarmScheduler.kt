@@ -1,0 +1,77 @@
+package com.gpowell.bdoboss.notify
+
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import com.gpowell.bdoboss.data.ScheduleRepository
+import com.gpowell.bdoboss.data.SettingsRepository
+import com.gpowell.bdoboss.domain.ReminderExpander
+import com.gpowell.bdoboss.domain.SpawnCalculator
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
+
+object AlarmScheduler {
+    const val EXTRA_BOSS = "boss"
+    const val EXTRA_LEAD = "lead"
+    private const val WINDOW_HOURS = 48L
+    private const val MAX_SPAWNS = 64
+    private val rearmMutex = Mutex()
+
+    /** Cancels previously armed alarms and arms the next ~48h of reminders. Safe to call repeatedly. */
+    suspend fun rearm(context: Context) = rearmMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val app = context.applicationContext
+            val alarmMgr = app.getSystemService(AlarmManager::class.java)
+            val codesFile = File(app.filesDir, "armed_codes.txt")
+
+            // cancel previously armed alarms
+            if (codesFile.exists()) {
+                codesFile.readLines().mapNotNull { it.toIntOrNull() }.forEach { code ->
+                    existingPending(app, code)?.let(alarmMgr::cancel)
+                }
+            }
+
+            val now = Instant.now()
+            val schedule = ScheduleRepository(app).load()
+            val settings = SettingsRepository(app).current()
+            val spawns = SpawnCalculator.upcoming(schedule, now, MAX_SPAWNS)
+                .filter { Duration.between(now, it.at).toHours() <= WINDOW_HOURS }
+            val reminders = ReminderExpander.expand(spawns, settings, now, ZoneId.systemDefault())
+
+            val canExact = if (Build.VERSION.SDK_INT < 31) true else alarmMgr.canScheduleExactAlarms()
+            val codes = mutableListOf<Int>()
+            for (r in reminders) {
+                val code = "${r.boss}|${r.spawnAt.epochSecond}|${r.leadMin}".hashCode()
+                val intent = Intent(app, AlarmReceiver::class.java)
+                    .putExtra(EXTRA_BOSS, r.boss)
+                    .putExtra(EXTRA_LEAD, r.leadMin)
+                val pi = PendingIntent.getBroadcast(
+                    app, code, intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                )
+                val triggerMs = r.triggerAt.toEpochMilli()
+                if (canExact) {
+                    alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
+                } else {
+                    alarmMgr.setWindow(AlarmManager.RTC_WAKEUP, triggerMs, 10 * 60_000L, pi)
+                }
+                codes += code
+            }
+            codesFile.writeText(codes.joinToString("\n"))
+        }
+    }
+
+    private fun existingPending(context: Context, code: Int): PendingIntent? =
+        PendingIntent.getBroadcast(
+            context, code, Intent(context, AlarmReceiver::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_NO_CREATE,
+        )
+}
