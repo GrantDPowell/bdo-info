@@ -7,9 +7,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ScheduleParsingTest {
+    private val timePattern = Regex("^\\d{2}:\\d{2}$")
+
     private fun load(): Schedule {
-        val text = javaClass.classLoader!!.getResourceAsStream("schedule_na.json")!!
-            .bufferedReader().use { it.readText() }
+        val stream = checkNotNull(javaClass.classLoader?.getResourceAsStream("schedule_na.json")) {
+            "schedule_na.json not found in test resources — check sourceSets config"
+        }
+        val text = stream.bufferedReader().use { it.readText() }
         return Json.decodeFromString(Schedule.serializer(), text)
     }
 
@@ -19,6 +23,7 @@ class ScheduleParsingTest {
         assertEquals("America/Los_Angeles", s.timezone)
         assertEquals(13, s.bosses.size)
         assertTrue(s.slots.isNotEmpty())
+        assertEquals(68, s.slots.size)
     }
 
     @Test fun `every slot boss is in the boss list and times are HH-mm`() {
@@ -26,7 +31,7 @@ class ScheduleParsingTest {
         val names = s.bosses.toSet()
         for (slot in s.slots) {
             assertTrue("unknown boss in $slot", slot.bosses.all { it in names })
-            assertTrue("bad time ${slot.time}", Regex("^\\d{2}:\\d{2}$").matches(slot.time))
+            assertTrue("bad time ${slot.time}", timePattern.matches(slot.time))
         }
     }
 
