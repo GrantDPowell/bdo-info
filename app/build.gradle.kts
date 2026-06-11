@@ -19,6 +19,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
     compileOptions {
@@ -27,6 +28,9 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    sourceSets {
+        getByName("test").resources.srcDirs("src/main/assets")
+    }
 }
 
 dependencies {
