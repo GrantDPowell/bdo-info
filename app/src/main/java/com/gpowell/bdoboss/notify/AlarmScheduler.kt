@@ -21,6 +21,7 @@ import java.time.ZoneId
 object AlarmScheduler {
     const val EXTRA_BOSS = "boss"
     const val EXTRA_LEAD = "lead"
+    const val EXTRA_SPAWN_EPOCH = "spawn_epoch"
     private const val WINDOW_HOURS = 48L
     private const val MAX_SPAWNS = 64
     private val rearmMutex = Mutex()
@@ -53,6 +54,7 @@ object AlarmScheduler {
                 val intent = Intent(app, AlarmReceiver::class.java)
                     .putExtra(EXTRA_BOSS, r.boss)
                     .putExtra(EXTRA_LEAD, r.leadMin)
+                    .putExtra(EXTRA_SPAWN_EPOCH, r.spawnAt.epochSecond)
                 val pi = PendingIntent.getBroadcast(
                     app, code, intent,
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
