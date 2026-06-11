@@ -43,7 +43,9 @@ import com.gpowell.bdoboss.data.NotificationSettings
 import com.gpowell.bdoboss.data.SettingsRepository
 import com.gpowell.bdoboss.notify.AlarmScheduler
 import com.gpowell.bdoboss.notify.NotificationHelper
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val LEAD_CHOICES = listOf(5, 10, 15, 30, 60)
 
@@ -56,8 +58,10 @@ fun SettingsScreen() {
 
     fun save(transform: (NotificationSettings) -> NotificationSettings) {
         scope.launch {
-            repo.update(transform)
-            AlarmScheduler.rearm(ctx.applicationContext)
+            withContext(NonCancellable) {
+                repo.update(transform)
+                AlarmScheduler.rearm(ctx.applicationContext)
+            }
         }
     }
 
@@ -112,7 +116,11 @@ fun SettingsScreen() {
                     ) {
                         Text("Exact alarms off — reminders may be late", Modifier.weight(1f))
                         Button({
-                            ctx.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
+                            ctx.startActivity(
+                                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                    data = android.net.Uri.parse("package:${ctx.packageName}")
+                                },
+                            )
                         }) { Text("Fix") }
                     }
                 }
