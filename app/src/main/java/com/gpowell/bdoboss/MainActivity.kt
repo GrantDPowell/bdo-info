@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.gpowell.bdoboss.data.Schedule
 import com.gpowell.bdoboss.data.ScheduleRepository
+import com.gpowell.bdoboss.data.ScheduleUpdater
 import com.gpowell.bdoboss.domain.Spawn
 import com.gpowell.bdoboss.domain.SpawnCalculator
 import com.gpowell.bdoboss.live.BossAlertsSocket
@@ -45,6 +46,11 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
 
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        private const val SCHEDULE_URL = "" /* set to a raw GitHub URL when one exists,
+            e.g. https://raw.githubusercontent.com/<user>/<repo>/main/schedule_na.json */
+    }
 
     private lateinit var liveSocket: BossAlertsSocket
 
@@ -68,6 +74,15 @@ class MainActivity : ComponentActivity() {
                     schedule = loaded
                     spawns = SpawnCalculator.upcoming(loaded, Instant.now(), 40)
                     lifecycleScope.launch { AlarmScheduler.rearm(this@MainActivity) }
+
+                    if (ScheduleUpdater(this@MainActivity.applicationContext).checkForUpdate(SCHEDULE_URL)) {
+                        val updated = withContext(Dispatchers.IO) {
+                            ScheduleRepository(this@MainActivity).load()
+                        }
+                        schedule = updated
+                        spawns = SpawnCalculator.upcoming(updated, Instant.now(), 40)
+                        AlarmScheduler.rearm(this@MainActivity.applicationContext)
+                    }
                 }
 
                 // Drift check: compare live boss next_spawn against local schedule
