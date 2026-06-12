@@ -17,6 +17,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
@@ -31,7 +32,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun BossDetailSheet(spawn: Spawn, bossInfo: BossInfo?, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val fmt = DateTimeFormatter.ofPattern("EEE h:mm a")
+    val fmt = remember { DateTimeFormatter.ofPattern("EEE h:mm a") }
     val localTime = fmt.format(spawn.at.atZone(ZoneId.systemDefault()))
 
     ModalBottomSheet(

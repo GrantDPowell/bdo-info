@@ -49,7 +49,7 @@
     {
       "name": "Garmoth",
       "drops": [
-        {"item": "Garmoth's Heart", "chance": "~0.01%", "confidence": "community-estimated", "note": "Used to craft Fiery Kutum/Nouver; worth ~8–9 billion silver."},
+        {"item": "Garmoth's Heart", "chance": "~0.01%", "confidence": "community-estimated", "note": "Imbues a TET+ Kutum/Nouver with bonus effects; worth ~8–9 billion silver."},
         {"item": "Garmoth's Bloodstone", "chance": "low", "confidence": "community-estimated", "note": "Exchange 10 for Garmoth's Heart (once per family) via Kukao at Garmoth's Nest."},
         {"item": "Garmoth's Horn", "chance": "", "confidence": "unknown", "note": "Exchangeable for the Young Crimson Dragon pet."},
         {"item": "Garmoth's Scale", "chance": "common", "confidence": "community-estimated", "note": "Material/filler drop; used in exchanges."},
@@ -71,10 +71,9 @@
     {
       "name": "Vell",
       "drops": [
-        {"item": "Vell's Heart", "chance": "~0.01%", "confidence": "community-estimated", "note": "Best-in-slot alchemy stone (All AP +8, Accuracy +10); worth 9+ billion silver. Can be upgraded to Blessed/Exalted versions."},
+        {"item": "Vell's Heart", "chance": "~0.01%", "confidence": "community-estimated", "note": "Best-in-slot alchemy stone (All AP +8, Accuracy +10); worth 9+ billion silver."},
         {"item": "Vell's Concentrated Magic", "chance": "low", "confidence": "community-estimated", "note": "Combine with 1,500 Alchemy Stone Shards via Simple Alchemy to craft Vell's Heart."},
         {"item": "Vell Reward Bundle (Advanced/Intermediate)", "chance": "~100%", "confidence": "official", "note": "Loot delivered to Black Spirit's Safe; Advanced bundle guarantees Caphras Stones and Vell's Fine Powder."},
-        {"item": "Rainbow Coral Ring", "chance": "", "confidence": "unknown", "note": "Chance drop from reward bundles."},
         {"item": "Caphras Stones", "chance": "guaranteed (Advanced)", "confidence": "official", "note": "Quantity varies by bundle tier."},
         {"item": "Vell's Fine Powder / Coral Pieces", "chance": "guaranteed (bundles)", "confidence": "official", "note": "Material filler."},
         {"item": "Gold Bars / Hunter's Seals / Black Stones", "chance": "common", "confidence": "community-estimated", "note": "Common filler from Intermediate bundle."}
