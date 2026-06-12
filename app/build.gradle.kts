@@ -31,6 +31,9 @@ android {
     sourceSets {
         getByName("test").resources.srcDirs("src/main/assets")
     }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

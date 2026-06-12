@@ -6,6 +6,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
@@ -27,6 +28,7 @@ class BossAlertsSocket(private val scope: CoroutineScope) {
     private val json = Json { ignoreUnknownKeys = true }
     private var socket: WebSocket? = null
     private var pingJob: Job? = null
+    private var reconnectJob: Job? = null
     private var wantConnected = false
 
     private val _state = MutableStateFlow(LiveState())
@@ -41,10 +43,11 @@ class BossAlertsSocket(private val scope: CoroutineScope) {
 
     fun disconnect() {
         wantConnected = false
+        reconnectJob?.cancel()
         pingJob?.cancel()
         socket?.close(1000, null)
         socket = null
-        _state.value = _state.value.copy(connected = false)
+        _state.update { it.copy(connected = false) }
     }
 
     // ── Internal ───────────────────────────────────────────────────────────────
@@ -64,28 +67,46 @@ class BossAlertsSocket(private val scope: CoroutineScope) {
         }
     }
 
+    private fun scheduleReconnect() {
+        if (!wantConnected) return
+        if (reconnectJob?.isActive == true) return
+        reconnectJob = scope.launch {
+            delay(5_000)
+            if (wantConnected) openSocket()
+        }
+    }
+
+    private fun handleSocketDown() {
+        pingJob?.cancel()
+        _state.update { it.copy(connected = false) }
+        scheduleReconnect()
+    }
+
     private val listener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            _state.value = _state.value.copy(connected = true)
+            if (webSocket !== socket) return
+            _state.update { it.copy(connected = true) }
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
+            if (webSocket !== socket) return
             runCatching { handle(json.parseToJsonElement(text)) }
                 .onFailure { Log.w(TAG, "bad ws message", it) }
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            _state.value = _state.value.copy(connected = false)
-            if (wantConnected) {
-                scope.launch {
-                    delay(5_000)
-                    if (wantConnected) openSocket()
-                }
-            }
+            if (webSocket !== socket) return
+            handleSocketDown()
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-            _state.value = _state.value.copy(connected = false)
+            if (webSocket !== socket) return
+            handleSocketDown()
+        }
+
+        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+            if (webSocket !== socket) return
+            handleSocketDown()
         }
     }
 
@@ -115,30 +136,34 @@ class BossAlertsSocket(private val scope: CoroutineScope) {
         val bosses = runCatching {
             json.decodeFromJsonElement(ListSerializer(WsBoss.serializer()), bossesEl)
         }.getOrElse { Log.w(TAG, "boss_timers parse error", it); return }
-        _state.value = _state.value.copy(bosses = bosses)
+        _state.update { it.copy(bosses = bosses) }
     }
 
     private fun handleResetTimers(data: JsonObject) {
         val rt = runCatching {
             json.decodeFromJsonElement(WsResetTimers.serializer(), data)
         }.getOrElse { Log.w(TAG, "reset_timers parse error", it); return }
-        _state.value = _state.value.copy(
-            dailyResetCountdown = rt.dailyReset?.countdown,
-            weeklyResetCountdown = rt.weeklyReset?.countdown,
-        )
+        _state.update {
+            it.copy(
+                dailyResetCountdown = rt.dailyReset?.countdown,
+                weeklyResetCountdown = rt.weeklyReset?.countdown,
+            )
+        }
     }
 
     private fun handleCaveStatus(data: JsonObject) {
         val cs = runCatching {
             json.decodeFromJsonElement(WsCaveStatus.serializer(), data)
         }.getOrElse { Log.w(TAG, "cave_status parse error", it); return }
-        _state.value = _state.value.copy(
-            caveOpen = when (cs.status?.uppercase()) {
-                "OPEN"   -> true
-                "CLOSED" -> false
-                else     -> null
-            },
-        )
+        _state.update {
+            it.copy(
+                caveOpen = when (cs.status?.uppercase()) {
+                    "OPEN"   -> true
+                    "CLOSED" -> false
+                    else     -> null
+                },
+            )
+        }
     }
 
     private companion object {
