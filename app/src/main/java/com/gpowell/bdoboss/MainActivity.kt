@@ -58,6 +58,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.gpowell.bdoboss.data.BossInfo
 import com.gpowell.bdoboss.data.BossInfoRepository
+import com.gpowell.bdoboss.data.BossInfoUpdater
 import com.gpowell.bdoboss.data.Schedule
 import com.gpowell.bdoboss.data.ScheduleRepository
 import com.gpowell.bdoboss.data.ScheduleUpdater
@@ -100,6 +101,10 @@ class MainActivity : ComponentActivity() {
         // app picks it up on next launch — no app update needed.
         private const val SCHEDULE_URL =
             "https://raw.githubusercontent.com/GrantDPowell/bdo-info/master/app/src/main/assets/schedule_na.json"
+
+        // Same OTA mechanism for the boss drop data: bump `version` in boss_info.json on GitHub.
+        private const val BOSS_INFO_URL =
+            "https://raw.githubusercontent.com/GrantDPowell/bdo-info/master/app/src/main/assets/boss_info.json"
     }
 
     private lateinit var liveSocket: BossAlertsSocket
@@ -153,6 +158,14 @@ class MainActivity : ComponentActivity() {
                         schedule = updated
                         spawns = SpawnCalculator.upcoming(updated, Instant.now(), 40)
                         AlarmScheduler.rearm(this@MainActivity.applicationContext)
+                    }
+
+                    if (BossInfoUpdater(this@MainActivity.applicationContext).checkForUpdate(BOSS_INFO_URL)) {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                BossInfoRepository(this@MainActivity).load()
+                            }
+                        }.getOrNull()?.let { bossInfo = it }
                     }
                 }
 
