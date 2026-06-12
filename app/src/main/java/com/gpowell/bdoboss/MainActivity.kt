@@ -70,8 +70,10 @@ import java.time.format.DateTimeParseException
 class MainActivity : ComponentActivity() {
 
     companion object {
-        private const val SCHEDULE_URL = "" /* set to a raw GitHub URL when one exists,
-            e.g. https://raw.githubusercontent.com/<user>/<repo>/main/schedule_na.json */
+        // Over-the-air schedule updates: bump `version` in this file on GitHub and the
+        // app picks it up on next launch — no app update needed.
+        private const val SCHEDULE_URL =
+            "https://raw.githubusercontent.com/GrantDPowell/bdo-info/master/app/src/main/assets/schedule_na.json"
     }
 
     private lateinit var liveSocket: BossAlertsSocket
