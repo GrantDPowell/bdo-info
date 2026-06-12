@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -166,6 +167,7 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize().background(backgroundBrush)) {
                     Scaffold(
                         containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.onBackground,
                         bottomBar = {
                             NavigationBar(containerColor = Color(0xFF14110C)) {
                                 val navItemColors = NavigationBarItemDefaults.colors(

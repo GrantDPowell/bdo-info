@@ -28,12 +28,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gpowell.bdoboss.data.Schedule
@@ -66,8 +69,9 @@ fun ScheduleScreen(schedule: Schedule, onSpawnClick: (Spawn) -> Unit = {}) {
     var appeared by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { appeared = true }
 
-    // Slow breathing alpha for the "next spawn" highlighted row.
-    val breathe by rememberInfiniteTransition(label = "breathe").animateFloat(
+    // Slow breathing alpha for the "next spawn" highlighted row. Passed as State and
+    // read only inside drawBehind so the per-frame value never triggers recomposition.
+    val breathe = rememberInfiniteTransition(label = "breathe").animateFloat(
         initialValue = 0.4f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(1600), RepeatMode.Reverse),
@@ -108,7 +112,7 @@ private fun DayCard(
     isToday: Boolean,
     spawns: List<Spawn>,
     nextSpawnAt: Instant?,
-    breathe: Float,
+    breathe: State<Float>,
     fmt: DateTimeFormatter,
     zone: ZoneId,
     onSpawnClick: (Spawn) -> Unit,
@@ -137,10 +141,12 @@ private fun DayCard(
                         .fillMaxWidth()
                         .then(
                             if (isNext) {
-                                Modifier.background(
-                                    BdoGold.copy(alpha = breathe * 0.08f),
-                                    RoundedCornerShape(6.dp),
-                                )
+                                Modifier.drawBehind {
+                                    drawRoundRect(
+                                        color = BdoGold.copy(alpha = breathe.value * 0.08f),
+                                        cornerRadius = CornerRadius(6.dp.toPx()),
+                                    )
+                                }
                             } else {
                                 Modifier
                             },
