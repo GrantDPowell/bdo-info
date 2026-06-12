@@ -32,6 +32,31 @@ exact-alarm notifications, drop tables, live server data. Built 2026-06-12.
   .NET System.Drawing (System.Drawing enum args must use full
   `[System.Drawing.Drawing2D...]` types, string casts fail in inline -Command)
 
+## v2 additions (0.7) — see `~/.claude/plans/bdoinfo_v2-design.md` for the full design
+
+- **5 tabs:** Bosses (Timers/Schedule/Alerts sub-tabs) · Market · Events · Profile · Hub,
+  plus ⚙ settings (API-key entry with clear-key path). Events/Profile are LOCKED
+  states until a BDO Alerts API key is pasted in settings.
+- **`data/api/BdoAlertsApi`:** typed client covering the ENTIRE BDO Alerts REST
+  surface (~40 endpoints), key-gated via ApiResult.NoKey — plug-in ready; only
+  player profile + coupons have typed DTOs, the rest return JsonElement until
+  real payloads are observed with a key.
+- **`data/FavoritesRepository`:** unified favorites (PAGE/ITEM/PLAYER) with
+  natural-key dedup; consumed by Hub bookmarks, Market watchlist, future Profile pins.
+- **Hub:** in-app WebView browser (persistent cookies → logins survive), site
+  tiles (Codex/Alerts/Garmoth), ⭐ bookmarks, algorithmic dark mode on API 33+.
+- **Market (keyless via arsha.io):** `data/market/` — MarketSource interface,
+  ArshaSource (probed real v2 endpoints; NO name search — `util/db` dump bundled
+  as `assets/item_index.json`, 62k items, ~617KB compressed in APK; search is a
+  local ranked index), 30-min price caches, watchlist, enhancement price tables
+  (sid 1-5/16-20 → PRI..PEN), Canvas 90-day history charts. Live price chips in
+  boss drop sheets. arsha's upstream intermittently 500s (Imperva) — UI degrades
+  silently by design. BdoAlertsSource slots into MarketRepository when keyed.
+- **Drop data v2:** combos split into real items; 71 of 92 drops have verified
+  bdocodex item_id + icon (ids cross-checked against npcdrop tables — do not
+  change ids without re-verifying); `BossDrop.codexUrl` derives the item page;
+  boss_info.json is now OTA-updatable (version 2, BossInfoUpdater, BOSS_INFO_URL).
+
 ## Architecture (3 layers — keep this separation)
 
 1. **Local schedule engine** (the backbone — notifications NEVER touch network):
