@@ -73,21 +73,25 @@ private enum class FavFilter(val label: String, val type: FavoriteType?) {
 }
 
 @Composable
-fun HubScreen() {
+fun HubScreen(onOpenItem: (Int) -> Unit = {}) {
     val ctx = LocalContext.current
     val repo = remember { FavoritesRepository(ctx.applicationContext) }
     var currentUrl by rememberSaveable { mutableStateOf<String?>(null) }
 
     val url = currentUrl
     if (url == null) {
-        HubLauncher(repo = repo, onOpen = { currentUrl = it })
+        HubLauncher(repo = repo, onOpen = { currentUrl = it }, onOpenItem = onOpenItem)
     } else {
         BrowserScreen(initialUrl = url, repo = repo, onExit = { currentUrl = null })
     }
 }
 
 @Composable
-private fun HubLauncher(repo: FavoritesRepository, onOpen: (String) -> Unit) {
+private fun HubLauncher(
+    repo: FavoritesRepository,
+    onOpen: (String) -> Unit,
+    onOpenItem: (Int) -> Unit,
+) {
     val favorites by repo.favorites.collectAsState(initial = emptyList())
     var filter by rememberSaveable { mutableStateOf(FavFilter.ALL) }
     val scope = rememberCoroutineScope()
@@ -140,6 +144,7 @@ private fun HubLauncher(repo: FavoritesRepository, onOpen: (String) -> Unit) {
                 FavoriteRow(
                     fav = fav,
                     onOpen = onOpen,
+                    onOpenItem = onOpenItem,
                     onDelete = { scope.launch { repo.remove(fav.id) } },
                 )
             }
@@ -188,14 +193,25 @@ private fun SiteTile(site: HubSite, modifier: Modifier = Modifier, onClick: () -
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FavoriteRow(fav: Favorite, onOpen: (String) -> Unit, onDelete: () -> Unit) {
+private fun FavoriteRow(
+    fav: Favorite,
+    onOpen: (String) -> Unit,
+    onOpenItem: (Int) -> Unit,
+    onDelete: () -> Unit,
+) {
     Card(
         onClick = {
             when (fav.type) {
-                // PAGE always carries a url; ITEM only when saved from a codex page.
+                // PAGE always carries a url.
                 FavoriteType.PAGE -> if (fav.url.isNotEmpty()) onOpen(fav.url)
-                FavoriteType.ITEM -> if (fav.url.isNotEmpty()) onOpen(fav.url)
-                // PLAYER (and url-less ITEM): Market/Profile deep links land in a later task.
+                // ITEM with an itemId opens Market item detail (cross-tab);
+                // codex-page saves without an id fall back to the browser.
+                FavoriteType.ITEM -> if (fav.itemId != 0) {
+                    onOpenItem(fav.itemId)
+                } else if (fav.url.isNotEmpty()) {
+                    onOpen(fav.url)
+                }
+                // PLAYER: Profile deep links land in a later task.
                 FavoriteType.PLAYER -> Unit
             }
         },

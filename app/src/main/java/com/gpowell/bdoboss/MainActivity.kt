@@ -59,9 +59,11 @@ import androidx.lifecycle.lifecycleScope
 import com.gpowell.bdoboss.data.BossInfo
 import com.gpowell.bdoboss.data.BossInfoRepository
 import com.gpowell.bdoboss.data.BossInfoUpdater
+import com.gpowell.bdoboss.data.FavoritesRepository
 import com.gpowell.bdoboss.data.Schedule
 import com.gpowell.bdoboss.data.ScheduleRepository
 import com.gpowell.bdoboss.data.ScheduleUpdater
+import com.gpowell.bdoboss.data.market.ItemIndexRepository
 import com.gpowell.bdoboss.data.market.MarketRepository
 import com.gpowell.bdoboss.domain.Spawn
 import com.gpowell.bdoboss.domain.SpawnCalculator
@@ -72,9 +74,9 @@ import com.gpowell.bdoboss.ui.BossDetailSheet
 import com.gpowell.bdoboss.ui.BossesScreen
 import com.gpowell.bdoboss.ui.EventsScreen
 import com.gpowell.bdoboss.ui.LiveHeader
-import com.gpowell.bdoboss.ui.MarketScreen
 import com.gpowell.bdoboss.ui.ProfileScreen
 import com.gpowell.bdoboss.ui.hub.HubScreen
+import com.gpowell.bdoboss.ui.market.MarketScreen
 import com.gpowell.bdoboss.ui.theme.BdoBossTheme
 import com.gpowell.bdoboss.ui.theme.BdoGold
 import kotlinx.coroutines.Dispatchers
@@ -113,6 +115,12 @@ class MainActivity : ComponentActivity() {
     // Shared so the in-memory price cache (30-min TTL) survives sheet open/close.
     private val marketRepo = MarketRepository()
 
+    // Shared so the parsed ~62k-entry index loads once per process.
+    private val itemIndexRepo by lazy { ItemIndexRepository(applicationContext) }
+
+    // DataStore behind it is a process-wide singleton; instance is cheap.
+    private val favoritesRepo by lazy { FavoritesRepository(applicationContext) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -135,6 +143,9 @@ class MainActivity : ComponentActivity() {
 
                 var tab by remember { mutableIntStateOf(0) }
                 var showSettings by remember { mutableStateOf(false) }
+                // Cross-tab nav: Hub ITEM favorites jump into Market item detail.
+                // MarketScreen consumes the request and clears it.
+                var marketDetailItemId by remember { mutableStateOf<Int?>(null) }
                 var schedule by remember { mutableStateOf<Schedule?>(null) }
                 var spawns by remember { mutableStateOf<List<Spawn>>(emptyList()) }
                 var bossInfo by remember { mutableStateOf<BossInfo?>(null) }
@@ -274,10 +285,21 @@ class MainActivity : ComponentActivity() {
                                         onSpawnClick = { selectedSpawn = it },
                                         headerContent = { LiveHeader(live) },
                                     )
-                                    1 -> MarketScreen()
+                                    1 -> MarketScreen(
+                                        market = marketRepo,
+                                        favoritesRepo = favoritesRepo,
+                                        itemIndex = itemIndexRepo,
+                                        externalDetailItemId = marketDetailItemId,
+                                        onExternalDetailConsumed = { marketDetailItemId = null },
+                                    )
                                     2 -> EventsScreen(onOpenSettings = { showSettings = true })
                                     3 -> ProfileScreen(onOpenSettings = { showSettings = true })
-                                    4 -> HubScreen()
+                                    4 -> HubScreen(
+                                        onOpenItem = { itemId ->
+                                            marketDetailItemId = itemId
+                                            tab = 1
+                                        },
+                                    )
                                 }
                             }
                         }
