@@ -1,5 +1,11 @@
 package com.gpowell.bdoboss.ui
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,10 +22,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,20 +49,49 @@ fun LiveHeader(live: LiveState) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             // ── Connection status row ─────────────────────────────────────────
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(if (live.connected) LiveGreen else LiveGray),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (live.connected) "LIVE" else "LOCAL",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (live.connected) LiveGreen else LiveGray,
-                )
+            Crossfade(targetState = live.connected, label = "liveState") { connected ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (connected) {
+                        val pulse = rememberInfiniteTransition(label = "dotPulse")
+                        val dotScale by pulse.animateFloat(
+                            initialValue = 1f,
+                            targetValue = 1.35f,
+                            animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+                            label = "dotScale",
+                        )
+                        val dotAlpha by pulse.animateFloat(
+                            initialValue = 1f,
+                            targetValue = 0.6f,
+                            animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+                            label = "dotAlpha",
+                        )
+                        Box(
+                            Modifier
+                                .size(10.dp)
+                                .graphicsLayer {
+                                    scaleX = dotScale
+                                    scaleY = dotScale
+                                    alpha = dotAlpha
+                                }
+                                .clip(CircleShape)
+                                .background(LiveGreen),
+                        )
+                    } else {
+                        Box(
+                            Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(LiveGray),
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (connected) "LIVE" else "LOCAL",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (connected) LiveGreen else LiveGray,
+                    )
+                }
             }
 
             // ── Reset countdowns + cave (only when connected) ─────────────────
@@ -95,11 +132,11 @@ private fun LabeledValue(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(
+        RollingText(
             text = value,
+            color = valueColor,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.SemiBold,
-            color = valueColor,
         )
     }
 }

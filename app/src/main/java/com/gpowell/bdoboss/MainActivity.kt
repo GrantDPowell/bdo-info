@@ -10,6 +10,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -20,6 +28,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +39,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.gpowell.bdoboss.data.BossInfo
@@ -47,6 +58,7 @@ import com.gpowell.bdoboss.ui.ScheduleScreen
 import com.gpowell.bdoboss.ui.SettingsScreen
 import com.gpowell.bdoboss.ui.TimersScreen
 import com.gpowell.bdoboss.ui.theme.BdoBossTheme
+import com.gpowell.bdoboss.ui.theme.BdoGold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -144,42 +156,70 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Scaffold(
-                    bottomBar = {
-                        NavigationBar {
-                            NavigationBarItem(
-                                selected = tab == 0, onClick = { tab = 0 },
-                                icon = { Icon(Icons.Filled.Notifications, contentDescription = "Timers") },
-                                label = { Text("Timers") },
-                            )
-                            NavigationBarItem(
-                                selected = tab == 1, onClick = { tab = 1 },
-                                icon = { Icon(Icons.Filled.DateRange, contentDescription = "Schedule") },
-                                label = { Text("Schedule") },
-                            )
-                            NavigationBarItem(
-                                selected = tab == 2, onClick = { tab = 2 },
-                                icon = { Icon(Icons.Filled.Settings, contentDescription = "Alerts") },
-                                label = { Text("Alerts") },
-                            )
-                        }
-                    },
-                ) { pad ->
-                    Box(Modifier.fillMaxSize().padding(pad)) {
-                        when (tab) {
-                            0 -> TimersScreen(
-                                spawns,
-                                onSpawnClick = { selectedSpawn = it },
-                                headerContent = { LiveHeader(live) },
-                            )
-                            1 -> schedule?.let {
-                                ScheduleScreen(it, onSpawnClick = { spawn -> selectedSpawn = spawn })
+                val backgroundBrush = remember {
+                    Brush.verticalGradient(
+                        0f to Color(0xFF0B0A08),
+                        0.5f to Color(0xFF14110C),
+                        1f to Color(0xFF0B0A08),
+                    )
+                }
+                Box(Modifier.fillMaxSize().background(backgroundBrush)) {
+                    Scaffold(
+                        containerColor = Color.Transparent,
+                        bottomBar = {
+                            NavigationBar(containerColor = Color(0xFF14110C)) {
+                                val navItemColors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    indicatorColor = BdoGold,
+                                    selectedTextColor = BdoGold,
+                                )
+                                NavigationBarItem(
+                                    selected = tab == 0, onClick = { tab = 0 },
+                                    icon = { Icon(Icons.Filled.Notifications, contentDescription = "Timers") },
+                                    label = { Text("Timers") },
+                                    colors = navItemColors,
+                                )
+                                NavigationBarItem(
+                                    selected = tab == 1, onClick = { tab = 1 },
+                                    icon = { Icon(Icons.Filled.DateRange, contentDescription = "Schedule") },
+                                    label = { Text("Schedule") },
+                                    colors = navItemColors,
+                                )
+                                NavigationBarItem(
+                                    selected = tab == 2, onClick = { tab = 2 },
+                                    icon = { Icon(Icons.Filled.Settings, contentDescription = "Alerts") },
+                                    label = { Text("Alerts") },
+                                    colors = navItemColors,
+                                )
                             }
-                            2 -> SettingsScreen()
+                        },
+                    ) { pad ->
+                        Box(Modifier.fillMaxSize().padding(pad)) {
+                            AnimatedContent(
+                                targetState = tab,
+                                transitionSpec = {
+                                    val dir = if (targetState > initialState) 1 else -1
+                                    (slideInHorizontally { it / 8 * dir } + fadeIn(tween(220))) togetherWith
+                                        (slideOutHorizontally { -it / 8 * dir } + fadeOut(tween(160)))
+                                },
+                                label = "tab",
+                            ) { t ->
+                                when (t) {
+                                    0 -> TimersScreen(
+                                        spawns,
+                                        onSpawnClick = { selectedSpawn = it },
+                                        headerContent = { LiveHeader(live) },
+                                    )
+                                    1 -> schedule?.let {
+                                        ScheduleScreen(it, onSpawnClick = { spawn -> selectedSpawn = spawn })
+                                    }
+                                    2 -> SettingsScreen()
+                                }
+                            }
                         }
-                    }
-                    selectedSpawn?.let { spawn ->
-                        BossDetailSheet(spawn, bossInfo) { selectedSpawn = null }
+                        selectedSpawn?.let { spawn ->
+                            BossDetailSheet(spawn, bossInfo) { selectedSpawn = null }
+                        }
                     }
                 }
             }
