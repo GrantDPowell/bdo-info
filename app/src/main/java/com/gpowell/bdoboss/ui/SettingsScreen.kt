@@ -23,9 +23,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,12 +38,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.gpowell.bdoboss.data.NotificationSettings
+import com.gpowell.bdoboss.data.QuietRule
 import com.gpowell.bdoboss.data.SettingsRepository
 import com.gpowell.bdoboss.notify.AlarmScheduler
 import com.gpowell.bdoboss.notify.NotificationHelper
+import com.gpowell.bdoboss.ui.theme.BdoGold
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,6 +67,10 @@ fun SettingsScreen() {
                 AlarmScheduler.rearm(ctx.applicationContext)
             }
         }
+    }
+
+    fun updateRule(updated: QuietRule) = save {
+        it.copy(quietRules = it.quietRules.map { r -> if (r.id == updated.id) updated else r })
     }
 
     var hasNotifPermission by remember {
@@ -127,6 +134,8 @@ fun SettingsScreen() {
                 }
             }
         }
+
+        item { SectionHeader("GENERAL") }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -140,36 +149,59 @@ fun SettingsScreen() {
             }
         }
         item {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Quiet hours", Modifier.weight(1f))
-                    Switch(
-                        checked = settings.quietEnabled,
-                        onCheckedChange = { on -> save { it.copy(quietEnabled = on) } },
-                    )
-                }
-                if (settings.quietEnabled) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MinuteField("From", settings.quietStartMin) { v ->
-                            save { it.copy(quietStartMin = v) }
-                        }
-                        MinuteField("To", settings.quietEndMin) { v ->
-                            save { it.copy(quietEndMin = v) }
-                        }
-                    }
-                }
-            }
-        }
-        items(NotificationSettings.ALL_DEFAULT_ON.sorted()) { boss ->
-            BossRow(boss, settings, ::save)
-        }
-        item {
             Button(
                 onClick = { NotificationHelper.showBossReminder(ctx, "Kzarka", 15) },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Send test notification") }
         }
+
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SectionHeader("QUIET HOURS", Modifier.weight(1f))
+                TextButton(onClick = {
+                    save {
+                        val newId = (it.quietRules.maxOfOrNull { r -> r.id } ?: 0L) + 1
+                        it.copy(quietRules = it.quietRules + QuietRule(id = newId))
+                    }
+                }) { Text("+ Add", color = BdoGold) }
+            }
+        }
+        if (settings.quietRules.isEmpty()) {
+            item {
+                Text(
+                    "No quiet hours — you'll get pinged 24/7.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        items(settings.quietRules, key = { it.id }) { rule ->
+            QuietRuleCard(
+                rule = rule,
+                onUpdate = ::updateRule,
+                onDelete = {
+                    save { it.copy(quietRules = it.quietRules.filterNot { r -> r.id == rule.id }) }
+                },
+            )
+        }
+
+        item { SectionHeader("BOSSES") }
+        items(NotificationSettings.ALL_DEFAULT_ON.sorted()) { boss ->
+            BossRow(boss, settings, ::save)
+        }
     }
+}
+
+@Composable
+private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
+    Text(
+        title,
+        modifier = modifier.padding(top = 8.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = BdoGold,
+        letterSpacing = 2.sp,
+        fontWeight = FontWeight.Bold,
+    )
 }
 
 @Composable
@@ -220,25 +252,4 @@ private fun BossRow(
             }
         }
     }
-}
-
-@Composable
-private fun MinuteField(label: String, minuteOfDay: Int, onChange: (Int) -> Unit) {
-    var text by remember(minuteOfDay) {
-        mutableStateOf("%02d:%02d".format(minuteOfDay / 60, minuteOfDay % 60))
-    }
-    OutlinedTextField(
-        value = text,
-        onValueChange = { v ->
-            text = v
-            Regex("^(\\d{1,2}):(\\d{2})$").find(v)?.let { m ->
-                val h = m.groupValues[1].toInt()
-                val min = m.groupValues[2].toInt()
-                if (h in 0..23 && min in 0..59) onChange(h * 60 + min)
-            }
-        },
-        label = { Text(label) },
-        singleLine = true,
-        modifier = Modifier.width(110.dp),
-    )
 }
