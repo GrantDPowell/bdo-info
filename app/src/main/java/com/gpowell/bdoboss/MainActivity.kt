@@ -32,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.gpowell.bdoboss.data.BossInfo
+import com.gpowell.bdoboss.data.BossInfoRepository
 import com.gpowell.bdoboss.data.Schedule
 import com.gpowell.bdoboss.data.ScheduleRepository
 import com.gpowell.bdoboss.data.ScheduleUpdater
@@ -39,6 +41,7 @@ import com.gpowell.bdoboss.domain.Spawn
 import com.gpowell.bdoboss.domain.SpawnCalculator
 import com.gpowell.bdoboss.live.BossAlertsSocket
 import com.gpowell.bdoboss.notify.AlarmScheduler
+import com.gpowell.bdoboss.ui.BossDetailSheet
 import com.gpowell.bdoboss.ui.LiveHeader
 import com.gpowell.bdoboss.ui.ScheduleScreen
 import com.gpowell.bdoboss.ui.SettingsScreen
@@ -83,6 +86,8 @@ class MainActivity : ComponentActivity() {
                 var tab by remember { mutableIntStateOf(0) }
                 var schedule by remember { mutableStateOf<Schedule?>(null) }
                 var spawns by remember { mutableStateOf<List<Spawn>>(emptyList()) }
+                var bossInfo by remember { mutableStateOf<BossInfo?>(null) }
+                var selectedSpawn by remember { mutableStateOf<Spawn?>(null) }
                 val live by liveSocket.state.collectAsState()
 
                 LaunchedEffect(Unit) {
@@ -92,6 +97,12 @@ class MainActivity : ComponentActivity() {
                     schedule = loaded
                     spawns = SpawnCalculator.upcoming(loaded, Instant.now(), 40)
                     lifecycleScope.launch { AlarmScheduler.rearm(this@MainActivity) }
+
+                    bossInfo = runCatching {
+                        withContext(Dispatchers.IO) {
+                            BossInfoRepository(this@MainActivity).load()
+                        }
+                    }.getOrNull()
 
                     if (ScheduleUpdater(this@MainActivity.applicationContext).checkForUpdate(SCHEDULE_URL)) {
                         val updated = withContext(Dispatchers.IO) {
@@ -156,10 +167,19 @@ class MainActivity : ComponentActivity() {
                 ) { pad ->
                     Box(Modifier.fillMaxSize().padding(pad)) {
                         when (tab) {
-                            0 -> TimersScreen(spawns, headerContent = { LiveHeader(live) })
-                            1 -> schedule?.let { ScheduleScreen(it) }
+                            0 -> TimersScreen(
+                                spawns,
+                                onSpawnClick = { selectedSpawn = it },
+                                headerContent = { LiveHeader(live) },
+                            )
+                            1 -> schedule?.let {
+                                ScheduleScreen(it, onSpawnClick = { spawn -> selectedSpawn = spawn })
+                            }
                             2 -> SettingsScreen()
                         }
+                    }
+                    selectedSpawn?.let { spawn ->
+                        BossDetailSheet(spawn, bossInfo) { selectedSpawn = null }
                     }
                 }
             }

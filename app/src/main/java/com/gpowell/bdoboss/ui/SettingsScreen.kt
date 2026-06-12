@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -181,6 +182,8 @@ private fun BossRow(
     Card {
         Column(Modifier.fillMaxWidth().padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                BossIcon(boss, size = 32.dp)
+                Spacer(Modifier.width(8.dp))
                 Text(boss, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                 Switch(
                     checked = enabled,

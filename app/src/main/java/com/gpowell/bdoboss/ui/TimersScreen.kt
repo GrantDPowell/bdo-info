@@ -1,8 +1,7 @@
 package com.gpowell.bdoboss.ui
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,10 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -27,11 +24,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.gpowell.bdoboss.domain.Spawn
 import com.gpowell.bdoboss.ui.theme.BdoGold
 import kotlinx.coroutines.delay
@@ -53,6 +48,7 @@ val bossColors = mapOf(
 @Composable
 fun TimersScreen(
     spawns: List<Spawn>,
+    onSpawnClick: (Spawn) -> Unit = {},
     headerContent: (@Composable () -> Unit)? = null,
 ) {
     var now by remember { mutableStateOf(Instant.now()) }
@@ -73,16 +69,24 @@ fun TimersScreen(
     ) {
         headerContent?.let { header -> item { header() } }
         items(spawns.filter { it.at > now }, key = { it.at.epochSecond }) { spawn ->
-            SpawnCard(spawn, now, fmt)
+            SpawnCard(spawn, now, fmt, onSpawnClick)
         }
     }
 }
 
 @Composable
-private fun SpawnCard(spawn: Spawn, now: Instant, fmt: DateTimeFormatter) {
+private fun SpawnCard(
+    spawn: Spawn,
+    now: Instant,
+    fmt: DateTimeFormatter,
+    onSpawnClick: (Spawn) -> Unit,
+) {
     val remaining = Duration.between(now, spawn.at)
     val local = spawn.at.atZone(ZoneId.systemDefault())
-    Card(shape = RoundedCornerShape(14.dp)) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.clickable { onSpawnClick(spawn) },
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -91,20 +95,7 @@ private fun SpawnCard(spawn: Spawn, now: Instant, fmt: DateTimeFormatter) {
         ) {
             Column(Modifier.weight(1f)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    spawn.bosses.forEach { boss ->
-                        Box(
-                            Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(bossColors[boss] ?: Color.Gray),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                boss.first().toString(), fontWeight = FontWeight.Bold,
-                                color = Color.White, fontSize = 14.sp,
-                            )
-                        }
-                    }
+                    spawn.bosses.forEach { boss -> BossIcon(boss) }
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(

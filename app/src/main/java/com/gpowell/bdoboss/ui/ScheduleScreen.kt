@@ -1,5 +1,6 @@
 package com.gpowell.bdoboss.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,7 +34,7 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun ScheduleScreen(schedule: Schedule) {
+fun ScheduleScreen(schedule: Schedule, onSpawnClick: (Spawn) -> Unit = {}) {
     val zone = remember { ZoneId.systemDefault() }
     val today = remember { LocalDate.now(zone) }
     val fmt = remember { DateTimeFormatter.ofPattern("h:mm a") }
@@ -60,6 +62,7 @@ fun ScheduleScreen(schedule: Schedule) {
                 nextSpawnAt = nextSpawnAt,
                 fmt = fmt,
                 zone = zone,
+                onSpawnClick = onSpawnClick,
             )
         }
     }
@@ -73,6 +76,7 @@ private fun DayCard(
     nextSpawnAt: Instant?,
     fmt: DateTimeFormatter,
     zone: ZoneId,
+    onSpawnClick: (Spawn) -> Unit,
 ) {
     Card {
         Column(Modifier.fillMaxWidth().padding(12.dp)) {
@@ -93,13 +97,26 @@ private fun DayCard(
             }
             spawns.forEach { spawn ->
                 val isNext = spawn.at == nextSpawnAt
-                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSpawnClick(spawn) }
+                        .padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
                         fmt.format(spawn.at.atZone(zone)),
                         modifier = Modifier.width(86.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (isNext) BdoGold else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        spawn.bosses.forEach { boss -> BossIcon(boss, size = 20.dp) }
+                    }
+                    Spacer(Modifier.width(6.dp))
                     Text(
                         spawn.bosses.joinToString(", "),
                         style = MaterialTheme.typography.bodyMedium,
