@@ -4,146 +4,602 @@
     {
       "name": "Kzarka",
       "drops": [
-        {"item": "Kzarka's Sealed Weapon Box", "chance": "~0.3–4%", "confidence": "community-estimated", "note": "Boss main-hand weapon; tiered by damage contribution. Nightmarish Kzarka can drop TET versions."},
-        {"item": "Kzarka's Latent Aura", "chance": "1–2 per kill", "confidence": "community-estimated", "note": "Exchange 100 for a Kzarka Sealed Weapon Box via quest."},
-        {"item": "Liverto Weapon Bundle", "chance": "~3%", "confidence": "community-estimated", "note": "Blue-grade alternative main-hand weapon."},
-        {"item": "Hunter's Seal", "chance": "2–4 per kill, ~100%", "confidence": "community-estimated", "note": "Common filler currency; exchangeable for boss gear boxes over time."},
-        {"item": "Gold Bar (1G–1,000G)", "chance": "~30%", "confidence": "community-estimated", "note": "Nightmarish variant has higher gold bar rewards."},
-        {"item": "Mark of Shadow / Shrine Guardian Token", "chance": "~3–15%", "confidence": "community-estimated", "note": "Yellow-grade accessories."},
-        {"item": "Black Stone (Weapon/Armor)", "chance": "~40–60%", "confidence": "community-estimated", "note": "Enhancement filler."}
+        {
+          "item": "Kzarka's Sealed Weapon Box",
+          "chance": "~0.3–4%",
+          "confidence": "community-estimated",
+          "note": "Boss main-hand weapon; tiered by damage contribution. Nightmarish Kzarka can drop TET versions.",
+          "icon": "kzarka_s_sealed_weapon_box.png"
+        },
+        {
+          "item": "Kzarka's Latent Aura",
+          "chance": "1–2 per kill",
+          "confidence": "community-estimated",
+          "note": "Exchange 100 for a Kzarka Sealed Weapon Box via quest.",
+          "icon": "kzarka_s_latent_aura.png"
+        },
+        {
+          "item": "Liverto Weapon Bundle",
+          "chance": "~3%",
+          "confidence": "community-estimated",
+          "note": "Blue-grade alternative main-hand weapon.",
+          "icon": "liverto_weapon_bundle.png"
+        },
+        {
+          "item": "Hunter's Seal",
+          "chance": "2–4 per kill, ~100%",
+          "confidence": "community-estimated",
+          "note": "Common filler currency; exchangeable for boss gear boxes over time.",
+          "icon": "hunter_s_seal.png"
+        },
+        {
+          "item": "Gold Bar (1G–1,000G)",
+          "chance": "~30%",
+          "confidence": "community-estimated",
+          "note": "Nightmarish variant has higher gold bar rewards."
+        },
+        {
+          "item": "Mark of Shadow / Shrine Guardian Token",
+          "chance": "~3–15%",
+          "confidence": "community-estimated",
+          "note": "Yellow-grade accessories."
+        },
+        {
+          "item": "Black Stone (Weapon/Armor)",
+          "chance": "~40–60%",
+          "confidence": "community-estimated",
+          "note": "Enhancement filler.",
+          "icon": "black_stone_weapon_armor.png"
+        }
       ]
     },
     {
       "name": "Kutum",
       "drops": [
-        {"item": "Kutum's Sealed Sub-weapon Box", "chance": "~1%", "confidence": "community-estimated", "note": "Boss sub-weapon, PvE-oriented. Thundercloud Kutum can drop TET versions."},
-        {"item": "Kutum's Latent Aura", "chance": "1–2 per kill", "confidence": "community-estimated", "note": "Exchange 100 for a Kutum Sealed Sub-weapon Box via quest."},
-        {"item": "Hunter's Seal", "chance": "2–4 per kill, ~100%", "confidence": "community-estimated", "note": "Common filler currency."},
-        {"item": "Black Stone (Weapon/Armor)", "chance": "~40–60%", "confidence": "community-estimated", "note": "Enhancement filler."},
-        {"item": "Gold Bar (up to 1,000G)", "chance": "", "confidence": "unknown", "note": "Higher-value gold bars from Thundercloud Kutum variant."},
-        {"item": "Ancient Magic Crystals", "chance": "", "confidence": "unknown", "note": "Crystal filler drops."}
+        {
+          "item": "Kutum's Sealed Sub-weapon Box",
+          "chance": "~1%",
+          "confidence": "community-estimated",
+          "note": "Boss sub-weapon, PvE-oriented. Thundercloud Kutum can drop TET versions.",
+          "icon": "kutum_s_sealed_sub_weapon_box.png"
+        },
+        {
+          "item": "Kutum's Latent Aura",
+          "chance": "1–2 per kill",
+          "confidence": "community-estimated",
+          "note": "Exchange 100 for a Kutum Sealed Sub-weapon Box via quest.",
+          "icon": "kutum_s_latent_aura.png"
+        },
+        {
+          "item": "Hunter's Seal",
+          "chance": "2–4 per kill, ~100%",
+          "confidence": "community-estimated",
+          "note": "Common filler currency.",
+          "icon": "hunter_s_seal.png"
+        },
+        {
+          "item": "Black Stone (Weapon/Armor)",
+          "chance": "~40–60%",
+          "confidence": "community-estimated",
+          "note": "Enhancement filler.",
+          "icon": "black_stone_weapon_armor.png"
+        },
+        {
+          "item": "Gold Bar (up to 1,000G)",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Higher-value gold bars from Thundercloud Kutum variant."
+        },
+        {
+          "item": "Ancient Magic Crystals",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Crystal filler drops."
+        }
       ]
     },
     {
       "name": "Nouver",
       "drops": [
-        {"item": "Nouver's Sealed Sub-weapon Box", "chance": "~1%", "confidence": "community-estimated", "note": "Boss sub-weapon, PvP/AP-oriented. Bloodstorm Nouver can drop TET versions."},
-        {"item": "Nouver's Latent Aura", "chance": "1–2 per kill", "confidence": "community-estimated", "note": "Exchange 100 for a Nouver Sealed Sub-weapon Box via quest."},
-        {"item": "Hunter's Seal", "chance": "2–4 per kill, ~100%", "confidence": "community-estimated", "note": "Common filler currency."},
-        {"item": "Black Stone (Weapon/Armor)", "chance": "~40–60%", "confidence": "community-estimated", "note": "Enhancement filler."},
-        {"item": "Gold Bar (up to 1,000G)", "chance": "", "confidence": "unknown", "note": "Higher-value gold bars from Bloodstorm Nouver variant."},
-        {"item": "Assault / Memory Crystals", "chance": "", "confidence": "unknown", "note": "Crystal filler drops."}
+        {
+          "item": "Nouver's Sealed Sub-weapon Box",
+          "chance": "~1%",
+          "confidence": "community-estimated",
+          "note": "Boss sub-weapon, PvP/AP-oriented. Bloodstorm Nouver can drop TET versions.",
+          "icon": "nouver_s_sealed_sub_weapon_box.png"
+        },
+        {
+          "item": "Nouver's Latent Aura",
+          "chance": "1–2 per kill",
+          "confidence": "community-estimated",
+          "note": "Exchange 100 for a Nouver Sealed Sub-weapon Box via quest.",
+          "icon": "nouver_s_latent_aura.png"
+        },
+        {
+          "item": "Hunter's Seal",
+          "chance": "2–4 per kill, ~100%",
+          "confidence": "community-estimated",
+          "note": "Common filler currency.",
+          "icon": "hunter_s_seal.png"
+        },
+        {
+          "item": "Black Stone (Weapon/Armor)",
+          "chance": "~40–60%",
+          "confidence": "community-estimated",
+          "note": "Enhancement filler.",
+          "icon": "black_stone_weapon_armor.png"
+        },
+        {
+          "item": "Gold Bar (up to 1,000G)",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Higher-value gold bars from Bloodstorm Nouver variant."
+        },
+        {
+          "item": "Assault / Memory Crystals",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Crystal filler drops."
+        }
       ]
     },
     {
       "name": "Karanda",
       "drops": [
-        {"item": "Dandelion Weapon Box", "chance": "~1%", "confidence": "community-estimated", "note": "Boss awakening weapon (requires level 56+)."},
-        {"item": "Karanda's Latent Aura", "chance": "1–2 per kill", "confidence": "community-estimated", "note": "Exchange 100 for a Dandelion Weapon Box via quest."},
-        {"item": "Heart of Karanda", "chance": "", "confidence": "unknown", "note": "Stormbringer Karanda variant only; grants Critical Hit Damage +3%."},
-        {"item": "Hunter's Seal", "chance": "2–4 per kill, ~100%", "confidence": "community-estimated", "note": "Common filler currency."},
-        {"item": "Black Stone (Weapon/Armor)", "chance": "~40–60%", "confidence": "community-estimated", "note": "Enhancement filler."},
-        {"item": "Ancient Magic Crystals", "chance": "", "confidence": "unknown", "note": "Crystal filler drops."}
+        {
+          "item": "Dandelion Weapon Box",
+          "chance": "~1%",
+          "confidence": "community-estimated",
+          "note": "Boss awakening weapon (requires level 56+).",
+          "icon": "dandelion_weapon_box.png"
+        },
+        {
+          "item": "Karanda's Latent Aura",
+          "chance": "1–2 per kill",
+          "confidence": "community-estimated",
+          "note": "Exchange 100 for a Dandelion Weapon Box via quest.",
+          "icon": "karanda_s_latent_aura.png"
+        },
+        {
+          "item": "Heart of Karanda",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Stormbringer Karanda variant only; grants Critical Hit Damage +3%.",
+          "icon": "heart_of_karanda.png"
+        },
+        {
+          "item": "Hunter's Seal",
+          "chance": "2–4 per kill, ~100%",
+          "confidence": "community-estimated",
+          "note": "Common filler currency.",
+          "icon": "hunter_s_seal.png"
+        },
+        {
+          "item": "Black Stone (Weapon/Armor)",
+          "chance": "~40–60%",
+          "confidence": "community-estimated",
+          "note": "Enhancement filler.",
+          "icon": "black_stone_weapon_armor.png"
+        },
+        {
+          "item": "Ancient Magic Crystals",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Crystal filler drops."
+        }
       ]
     },
     {
       "name": "Garmoth",
       "drops": [
-        {"item": "Garmoth's Heart", "chance": "~0.01%", "confidence": "community-estimated", "note": "Imbues a TET+ Kutum/Nouver with bonus effects; worth ~8–9 billion silver."},
-        {"item": "Garmoth's Bloodstone", "chance": "low", "confidence": "community-estimated", "note": "Exchange 10 for Garmoth's Heart (once per family) via Kukao at Garmoth's Nest."},
-        {"item": "Garmoth's Horn", "chance": "", "confidence": "unknown", "note": "Exchangeable for the Young Crimson Dragon pet."},
-        {"item": "Garmoth's Scale", "chance": "common", "confidence": "community-estimated", "note": "Material/filler drop; used in exchanges."},
-        {"item": "Caphras Stone Bundle (50–100)", "chance": "", "confidence": "unknown", "note": "High-value enhancement filler."},
-        {"item": "Hunter's Seal", "chance": "common", "confidence": "community-estimated", "note": "Loot limited to 3 reward claims per week."}
+        {
+          "item": "Garmoth's Heart",
+          "chance": "~0.01%",
+          "confidence": "community-estimated",
+          "note": "Imbues a TET+ Kutum/Nouver with bonus effects; worth ~8–9 billion silver.",
+          "icon": "garmoth_s_heart.png"
+        },
+        {
+          "item": "Garmoth's Bloodstone",
+          "chance": "low",
+          "confidence": "community-estimated",
+          "note": "Exchange 10 for Garmoth's Heart (once per family) via Kukao at Garmoth's Nest.",
+          "icon": "garmoth_s_bloodstone.png"
+        },
+        {
+          "item": "Garmoth's Horn",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Exchangeable for the Young Crimson Dragon pet.",
+          "icon": "garmoth_s_horn.png"
+        },
+        {
+          "item": "Garmoth's Scale",
+          "chance": "common",
+          "confidence": "community-estimated",
+          "note": "Material/filler drop; used in exchanges.",
+          "icon": "garmoth_s_scale.png"
+        },
+        {
+          "item": "Caphras Stone Bundle (50–100)",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "High-value enhancement filler."
+        },
+        {
+          "item": "Hunter's Seal",
+          "chance": "common",
+          "confidence": "community-estimated",
+          "note": "Loot limited to 3 reward claims per week.",
+          "icon": "hunter_s_seal.png"
+        }
       ]
     },
     {
       "name": "Offin",
       "drops": [
-        {"item": "Offin Tett's Sealed Light Weapon Box", "chance": "~1%", "confidence": "community-estimated", "note": "Boss main-hand weapon (pure AP, no accuracy). TET Radiant versions from enhanced variants."},
-        {"item": "Offin Tett's Light Fragment", "chance": "1–2 per kill", "confidence": "community-estimated", "note": "Exchange 100 for Offin Tett's Light Sealed Weapon Box; 2 fragments exchangeable for Concentrated Offin Tett Crystal via Jetina weeklies."},
-        {"item": "Valtarra Eclipsed Belt", "chance": "", "confidence": "unknown", "note": "Yellow-grade belt."},
-        {"item": "Lemoria Armor Pieces", "chance": "", "confidence": "unknown", "note": "Green-grade Kamasylvia armor set."},
-        {"item": "Cobelinus Crystals", "chance": "", "confidence": "unknown", "note": "Crystal filler drops."},
-        {"item": "Black Stone (Weapon/Armor) / Hunter's Seal", "chance": "common", "confidence": "community-estimated", "note": "Common filler."}
+        {
+          "item": "Offin Tett's Sealed Light Weapon Box",
+          "chance": "~1%",
+          "confidence": "community-estimated",
+          "note": "Boss main-hand weapon (pure AP, no accuracy). TET Radiant versions from enhanced variants.",
+          "icon": "offin_tett_s_sealed_light_weapon_box.png"
+        },
+        {
+          "item": "Offin Tett's Light Fragment",
+          "chance": "1–2 per kill",
+          "confidence": "community-estimated",
+          "note": "Exchange 100 for Offin Tett's Light Sealed Weapon Box; 2 fragments exchangeable for Concentrated Offin Tett Crystal via Jetina weeklies.",
+          "icon": "offin_tett_s_light_fragment.png"
+        },
+        {
+          "item": "Valtarra Eclipsed Belt",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Yellow-grade belt.",
+          "icon": "valtarra_eclipsed_belt.png"
+        },
+        {
+          "item": "Lemoria Armor Pieces",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Green-grade Kamasylvia armor set."
+        },
+        {
+          "item": "Cobelinus Crystals",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Crystal filler drops."
+        },
+        {
+          "item": "Black Stone (Weapon/Armor) / Hunter's Seal",
+          "chance": "common",
+          "confidence": "community-estimated",
+          "note": "Common filler."
+        }
       ]
     },
     {
       "name": "Vell",
       "drops": [
-        {"item": "Vell's Heart", "chance": "~0.01%", "confidence": "community-estimated", "note": "Best-in-slot alchemy stone (All AP +8, Accuracy +10); worth 9+ billion silver."},
-        {"item": "Vell's Concentrated Magic", "chance": "low", "confidence": "community-estimated", "note": "Combine with 1,500 Alchemy Stone Shards via Simple Alchemy to craft Vell's Heart."},
-        {"item": "Vell Reward Bundle (Advanced/Intermediate)", "chance": "~100%", "confidence": "official", "note": "Loot delivered to Black Spirit's Safe; Advanced bundle guarantees Caphras Stones and Vell's Fine Powder."},
-        {"item": "Caphras Stones", "chance": "guaranteed (Advanced)", "confidence": "official", "note": "Quantity varies by bundle tier."},
-        {"item": "Vell's Fine Powder / Coral Pieces", "chance": "guaranteed (bundles)", "confidence": "official", "note": "Material filler."},
-        {"item": "Gold Bars / Hunter's Seals / Black Stones", "chance": "common", "confidence": "community-estimated", "note": "Common filler from Intermediate bundle."}
+        {
+          "item": "Vell's Heart",
+          "chance": "~0.01%",
+          "confidence": "community-estimated",
+          "note": "Best-in-slot alchemy stone (All AP +8, Accuracy +10); worth 9+ billion silver.",
+          "icon": "vell_s_heart.png"
+        },
+        {
+          "item": "Vell's Concentrated Magic",
+          "chance": "low",
+          "confidence": "community-estimated",
+          "note": "Combine with 1,500 Alchemy Stone Shards via Simple Alchemy to craft Vell's Heart.",
+          "icon": "vell_s_concentrated_magic.png"
+        },
+        {
+          "item": "Vell Reward Bundle (Advanced/Intermediate)",
+          "chance": "~100%",
+          "confidence": "official",
+          "note": "Loot delivered to Black Spirit's Safe; Advanced bundle guarantees Caphras Stones and Vell's Fine Powder."
+        },
+        {
+          "item": "Caphras Stones",
+          "chance": "guaranteed (Advanced)",
+          "confidence": "official",
+          "note": "Quantity varies by bundle tier.",
+          "icon": "caphras_stones.png"
+        },
+        {
+          "item": "Vell's Fine Powder / Coral Pieces",
+          "chance": "guaranteed (bundles)",
+          "confidence": "official",
+          "note": "Material filler."
+        },
+        {
+          "item": "Gold Bars / Hunter's Seals / Black Stones",
+          "chance": "common",
+          "confidence": "community-estimated",
+          "note": "Common filler from Intermediate bundle."
+        }
       ]
     },
     {
       "name": "Uturi",
       "drops": [
-        {"item": "Flame of the Primordial", "chance": "extremely low", "confidence": "community-estimated", "note": "Jackpot item shared across all four Morning Light world bosses; weekly, weighted to top 10 contributors."},
-        {"item": "Asadal Belt", "chance": "", "confidence": "unknown", "note": "Boss-specific accessory (Uturi and Golden Pig King)."},
-        {"item": "Embers of the Primordial", "chance": "", "confidence": "unknown", "note": "Lesser version of Flame of the Primordial."},
-        {"item": "Primordial Crystal", "chance": "", "confidence": "unknown", "note": "Crystal drop unique to Morning Light bosses."},
-        {"item": "Reforge Stone (AP / Accuracy / Evasion)", "chance": "", "confidence": "unknown", "note": "Offense/evasion oriented pool."},
-        {"item": "Faint Dark Hunger Box (2–5)", "chance": "", "confidence": "official", "note": "Added Dec 2025; Faint Origin boosts Devour enhancement chance for Kharazad accessories."},
-        {"item": "Gold Bar 1,000G / Caphras Stone Bundle", "chance": "", "confidence": "unknown", "note": "High-value filler. Weekly loot resets Thursday midnight UTC."}
+        {
+          "item": "Flame of the Primordial",
+          "chance": "extremely low",
+          "confidence": "community-estimated",
+          "note": "Jackpot item shared across all four Morning Light world bosses; weekly, weighted to top 10 contributors.",
+          "icon": "flame_of_the_primordial.png"
+        },
+        {
+          "item": "Asadal Belt",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Boss-specific accessory (Uturi and Golden Pig King).",
+          "icon": "asadal_belt.png"
+        },
+        {
+          "item": "Embers of the Primordial",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Lesser version of Flame of the Primordial.",
+          "icon": "embers_of_the_primordial.png"
+        },
+        {
+          "item": "Primordial Crystal",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Crystal drop unique to Morning Light bosses.",
+          "icon": "primordial_crystal.png"
+        },
+        {
+          "item": "Reforge Stone (AP / Accuracy / Evasion)",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Offense/evasion oriented pool."
+        },
+        {
+          "item": "Faint Dark Hunger Box (2–5)",
+          "chance": "",
+          "confidence": "official",
+          "note": "Added Dec 2025; Faint Origin boosts Devour enhancement chance for Kharazad accessories.",
+          "icon": "faint_dark_hunger_box_2_5.png"
+        },
+        {
+          "item": "Gold Bar 1,000G / Caphras Stone Bundle",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "High-value filler. Weekly loot resets Thursday midnight UTC."
+        }
       ]
     },
     {
       "name": "Sangoon",
       "drops": [
-        {"item": "Flame of the Primordial", "chance": "extremely low", "confidence": "community-estimated", "note": "Jackpot item shared across all four Morning Light world bosses; weekly, weighted to top 10 contributors."},
-        {"item": "Asadal Necklace", "chance": "", "confidence": "unknown", "note": "Boss-specific accessory (Sangoon and Bulgasal)."},
-        {"item": "Embers of the Primordial", "chance": "", "confidence": "unknown", "note": "Lesser version of Flame of the Primordial."},
-        {"item": "Primordial Crystal", "chance": "", "confidence": "unknown", "note": "Crystal drop unique to Morning Light bosses."},
-        {"item": "Reforge Stone (AP / Crit Rate / Back-Down-Air Attack)", "chance": "", "confidence": "unknown", "note": "Burst-damage oriented pool."},
-        {"item": "Faint Dark Hunger Box (2–5)", "chance": "", "confidence": "official", "note": "Added Dec 2025; Faint Origin boosts Devour enhancement chance for Kharazad accessories."},
-        {"item": "Gold Bar 1,000G / Caphras Stone Bundle / Advice of Valks", "chance": "", "confidence": "unknown", "note": "High-value filler. Weekly loot resets Thursday midnight UTC."}
+        {
+          "item": "Flame of the Primordial",
+          "chance": "extremely low",
+          "confidence": "community-estimated",
+          "note": "Jackpot item shared across all four Morning Light world bosses; weekly, weighted to top 10 contributors.",
+          "icon": "flame_of_the_primordial.png"
+        },
+        {
+          "item": "Asadal Necklace",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Boss-specific accessory (Sangoon and Bulgasal).",
+          "icon": "asadal_necklace.png"
+        },
+        {
+          "item": "Embers of the Primordial",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Lesser version of Flame of the Primordial.",
+          "icon": "embers_of_the_primordial.png"
+        },
+        {
+          "item": "Primordial Crystal",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Crystal drop unique to Morning Light bosses.",
+          "icon": "primordial_crystal.png"
+        },
+        {
+          "item": "Reforge Stone (AP / Crit Rate / Back-Down-Air Attack)",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Burst-damage oriented pool."
+        },
+        {
+          "item": "Faint Dark Hunger Box (2–5)",
+          "chance": "",
+          "confidence": "official",
+          "note": "Added Dec 2025; Faint Origin boosts Devour enhancement chance for Kharazad accessories.",
+          "icon": "faint_dark_hunger_box_2_5.png"
+        },
+        {
+          "item": "Gold Bar 1,000G / Caphras Stone Bundle / Advice of Valks",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "High-value filler. Weekly loot resets Thursday midnight UTC."
+        }
       ]
     },
     {
       "name": "Bulgasal",
       "drops": [
-        {"item": "Flame of the Primordial", "chance": "extremely low", "confidence": "community-estimated", "note": "Jackpot item shared across all four Morning Light world bosses; weekly, weighted to top 10 contributors."},
-        {"item": "Asadal Necklace", "chance": "", "confidence": "unknown", "note": "Boss-specific accessory (Bulgasal and Sangoon)."},
-        {"item": "Embers of the Primordial", "chance": "", "confidence": "unknown", "note": "Lesser version of Flame of the Primordial."},
-        {"item": "Primordial Crystal", "chance": "", "confidence": "unknown", "note": "Crystal drop unique to Morning Light bosses."},
-        {"item": "Reforge Stone (Damage Reduction / Max HP / Knockback-Stun Resistance)", "chance": "", "confidence": "unknown", "note": "Defense oriented pool."},
-        {"item": "Faint Dark Hunger Box (2–5)", "chance": "", "confidence": "official", "note": "Added Dec 2025; Faint Origin boosts Devour enhancement chance for Kharazad accessories."},
-        {"item": "Gold Bar 1,000G / Caphras Stone Bundle / Advice of Valks", "chance": "", "confidence": "unknown", "note": "High-value filler. Weekly loot resets Thursday midnight UTC."}
+        {
+          "item": "Flame of the Primordial",
+          "chance": "extremely low",
+          "confidence": "community-estimated",
+          "note": "Jackpot item shared across all four Morning Light world bosses; weekly, weighted to top 10 contributors.",
+          "icon": "flame_of_the_primordial.png"
+        },
+        {
+          "item": "Asadal Necklace",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Boss-specific accessory (Bulgasal and Sangoon).",
+          "icon": "asadal_necklace.png"
+        },
+        {
+          "item": "Embers of the Primordial",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Lesser version of Flame of the Primordial.",
+          "icon": "embers_of_the_primordial.png"
+        },
+        {
+          "item": "Primordial Crystal",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Crystal drop unique to Morning Light bosses.",
+          "icon": "primordial_crystal.png"
+        },
+        {
+          "item": "Reforge Stone (Damage Reduction / Max HP / Knockback-Stun Resistance)",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Defense oriented pool."
+        },
+        {
+          "item": "Faint Dark Hunger Box (2–5)",
+          "chance": "",
+          "confidence": "official",
+          "note": "Added Dec 2025; Faint Origin boosts Devour enhancement chance for Kharazad accessories.",
+          "icon": "faint_dark_hunger_box_2_5.png"
+        },
+        {
+          "item": "Gold Bar 1,000G / Caphras Stone Bundle / Advice of Valks",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "High-value filler. Weekly loot resets Thursday midnight UTC."
+        }
       ]
     },
     {
       "name": "Quint",
       "drops": [
-        {"item": "Mutant Enhancer", "chance": "7–20 per kill", "confidence": "community-estimated", "note": "Exchange 20 for Mark of Shadow or Witch's Earring; exchange 100 for Ogre Ring."},
-        {"item": "Hunter's Seal", "chance": "common", "confidence": "community-estimated", "note": "Common filler currency."},
-        {"item": "Black Stone (Weapon/Armor)", "chance": "common", "confidence": "community-estimated", "note": "Enhancement filler."},
-        {"item": "Spirit's Leaf / Contribution Exchange Items", "chance": "", "confidence": "unknown", "note": "Mutant Enhancers also exchangeable toward contribution EXP."}
+        {
+          "item": "Mutant Enhancer",
+          "chance": "7–20 per kill",
+          "confidence": "community-estimated",
+          "note": "Exchange 20 for Mark of Shadow or Witch's Earring; exchange 100 for Ogre Ring.",
+          "icon": "mutant_enhancer.png"
+        },
+        {
+          "item": "Hunter's Seal",
+          "chance": "common",
+          "confidence": "community-estimated",
+          "note": "Common filler currency.",
+          "icon": "hunter_s_seal.png"
+        },
+        {
+          "item": "Black Stone (Weapon/Armor)",
+          "chance": "common",
+          "confidence": "community-estimated",
+          "note": "Enhancement filler.",
+          "icon": "black_stone_weapon_armor.png"
+        },
+        {
+          "item": "Spirit's Leaf / Contribution Exchange Items",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Mutant Enhancers also exchangeable toward contribution EXP."
+        }
       ]
     },
     {
       "name": "Muraka",
       "drops": [
-        {"item": "Dim Ogre Ring", "chance": "~1%", "confidence": "community-estimated", "note": "Opens into one of: Shattered Necklace, Ogre Ring, PRI, or DUO Ogre Ring."},
-        {"item": "Mutant Enhancer", "chance": "5–7 per kill", "confidence": "community-estimated", "note": "Exchange 20 for Mark of Shadow/Witch's Earring; exchange 100 for Ogre Ring."},
-        {"item": "Hunter's Seal", "chance": "common", "confidence": "community-estimated", "note": "Common filler currency."},
-        {"item": "Black Stone (Weapon/Armor)", "chance": "common", "confidence": "community-estimated", "note": "Enhancement filler."},
-        {"item": "Ancient Magic Crystals", "chance": "", "confidence": "unknown", "note": "Crystal filler drops."}
+        {
+          "item": "Dim Ogre Ring",
+          "chance": "~1%",
+          "confidence": "community-estimated",
+          "note": "Opens into one of: Shattered Necklace, Ogre Ring, PRI, or DUO Ogre Ring.",
+          "icon": "dim_ogre_ring.png"
+        },
+        {
+          "item": "Mutant Enhancer",
+          "chance": "5–7 per kill",
+          "confidence": "community-estimated",
+          "note": "Exchange 20 for Mark of Shadow/Witch's Earring; exchange 100 for Ogre Ring.",
+          "icon": "mutant_enhancer.png"
+        },
+        {
+          "item": "Hunter's Seal",
+          "chance": "common",
+          "confidence": "community-estimated",
+          "note": "Common filler currency.",
+          "icon": "hunter_s_seal.png"
+        },
+        {
+          "item": "Black Stone (Weapon/Armor)",
+          "chance": "common",
+          "confidence": "community-estimated",
+          "note": "Enhancement filler.",
+          "icon": "black_stone_weapon_armor.png"
+        },
+        {
+          "item": "Ancient Magic Crystals",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Crystal filler drops."
+        }
       ]
     },
     {
       "name": "Golden Pig King",
       "drops": [
-        {"item": "Flame of the Primordial", "chance": "extremely low", "confidence": "community-estimated", "note": "Jackpot item shared across all four Morning Light world bosses; weekly, weighted to top 10 contributors."},
-        {"item": "Asadal Belt", "chance": "", "confidence": "unknown", "note": "Boss-specific accessory (Golden Pig King and Uturi)."},
-        {"item": "Embers of the Primordial", "chance": "", "confidence": "unknown", "note": "Lesser version of Flame of the Primordial."},
-        {"item": "Primordial Crystal", "chance": "", "confidence": "unknown", "note": "Crystal drop unique to Morning Light bosses."},
-        {"item": "Reforge Stone (AP / Accuracy / DR / Max HP / Crit)", "chance": "", "confidence": "unknown", "note": "Mixed offense/defense pool."},
-        {"item": "Faint Dark Hunger Box (2–5)", "chance": "", "confidence": "official", "note": "Added Dec 2025; Faint Origin boosts Devour enhancement chance for Kharazad accessories."},
-        {"item": "Gold Bar 1,000G / Caphras Stone Bundle", "chance": "", "confidence": "unknown", "note": "High-value filler. Weekly loot resets Thursday midnight UTC."}
+        {
+          "item": "Flame of the Primordial",
+          "chance": "extremely low",
+          "confidence": "community-estimated",
+          "note": "Jackpot item shared across all four Morning Light world bosses; weekly, weighted to top 10 contributors.",
+          "icon": "flame_of_the_primordial.png"
+        },
+        {
+          "item": "Asadal Belt",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Boss-specific accessory (Golden Pig King and Uturi).",
+          "icon": "asadal_belt.png"
+        },
+        {
+          "item": "Embers of the Primordial",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Lesser version of Flame of the Primordial.",
+          "icon": "embers_of_the_primordial.png"
+        },
+        {
+          "item": "Primordial Crystal",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Crystal drop unique to Morning Light bosses.",
+          "icon": "primordial_crystal.png"
+        },
+        {
+          "item": "Reforge Stone (AP / Accuracy / DR / Max HP / Crit)",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Mixed offense/defense pool."
+        },
+        {
+          "item": "Faint Dark Hunger Box (2–5)",
+          "chance": "",
+          "confidence": "official",
+          "note": "Added Dec 2025; Faint Origin boosts Devour enhancement chance for Kharazad accessories.",
+          "icon": "faint_dark_hunger_box_2_5.png"
+        },
+        {
+          "item": "Gold Bar 1,000G / Caphras Stone Bundle",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "High-value filler. Weekly loot resets Thursday midnight UTC."
+        }
       ]
     }
   ]

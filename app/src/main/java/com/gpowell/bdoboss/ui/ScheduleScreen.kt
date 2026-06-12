@@ -114,7 +114,7 @@ private fun DayCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        spawn.bosses.forEach { boss -> BossIcon(boss, size = 20.dp) }
+                        spawn.bosses.forEach { boss -> BossIcon(boss, size = 26.dp) }
                     }
                     Spacer(Modifier.width(6.dp))
                     Text(

@@ -182,7 +182,7 @@ private fun BossRow(
     Card {
         Column(Modifier.fillMaxWidth().padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                BossIcon(boss, size = 32.dp)
+                BossIcon(boss, size = 40.dp)
                 Spacer(Modifier.width(8.dp))
                 Text(boss, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                 Switch(

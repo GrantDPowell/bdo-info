@@ -7,12 +7,14 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.gpowell.bdoboss.MainActivity
 import com.gpowell.bdoboss.R
+import com.gpowell.bdoboss.bossIcons
 
 object NotificationHelper {
     private const val CHANNEL_ID = "boss_spawns"
@@ -38,7 +40,7 @@ object NotificationHelper {
         )
         val text = if (minutesUntil <= 0) "$boss is spawning now!"
                    else "$boss spawns in $minutesUntil min"
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("World Boss")
             .setContentText(text)
@@ -46,8 +48,11 @@ object NotificationHelper {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(tap)
-            .build()
+        val largeIconRes = bossIcons[boss]
+        if (largeIconRes != null) {
+            builder.setLargeIcon(BitmapFactory.decodeResource(context.resources, largeIconRes))
+        }
         NotificationManagerCompat.from(context)
-            .notify((boss + minutesUntil).hashCode(), notification)
+            .notify((boss + minutesUntil).hashCode(), builder.build())
     }
 }

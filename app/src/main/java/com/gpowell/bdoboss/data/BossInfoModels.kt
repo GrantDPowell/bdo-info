@@ -11,6 +11,7 @@ data class BossDrop(
     val chance: String = "",
     val confidence: String = "unknown",
     val note: String = "",
+    val icon: String = "",
 )
 
 @Serializable

@@ -56,7 +56,7 @@ fun BossDetailSheet(spawn: Spawn, bossInfo: BossInfo?, onDismiss: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    BossIcon(boss, size = 44.dp)
+                    BossIcon(boss, size = 64.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
@@ -87,8 +87,10 @@ fun BossDetailSheet(spawn: Spawn, bossInfo: BossInfo?, onDismiss: () -> Unit) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
+                            ItemIcon(drop.icon)
                             Column(Modifier.weight(1f)) {
                                 Text(
                                     drop.item,

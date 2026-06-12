@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.Assert.assertNotNull
 
 class BossInfoParsingTest {
     private val json = Json { ignoreUnknownKeys = true }
@@ -33,6 +34,16 @@ class BossInfoParsingTest {
             for (d in b.drops) {
                 assertTrue(d.item.isNotBlank())
                 assertTrue(d.confidence in setOf("official", "community-estimated", "unknown"))
+            }
+        }
+    }
+
+    @Test fun `every declared drop icon exists in assets`() {
+        for (b in load().bosses) for (d in b.drops) {
+            if (d.icon.isNotBlank()) {
+                val stream = javaClass.classLoader?.getResourceAsStream("item_icons/${d.icon}")
+                assertTrue("missing asset for ${d.item}: ${d.icon}", stream != null)
+                stream?.close()
             }
         }
     }

@@ -96,7 +96,7 @@ private fun SpawnCard(
         ) {
             Column(Modifier.weight(1f)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    spawn.bosses.forEach { boss -> BossIcon(boss) }
+                    spawn.bosses.forEach { boss -> BossIcon(boss, size = 44.dp) }
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(

@@ -1,38 +1,27 @@
 package com.gpowell.bdoboss.ui
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gpowell.bdoboss.R
-
-val bossIcons: Map<String, Int> = mapOf(
-    "Kzarka" to R.drawable.boss_kzarka,
-    "Kutum" to R.drawable.boss_kutum,
-    "Nouver" to R.drawable.boss_nouver,
-    "Karanda" to R.drawable.boss_karanda,
-    "Garmoth" to R.drawable.boss_garmoth,
-    "Offin" to R.drawable.boss_offin,
-    "Vell" to R.drawable.boss_vell,
-    "Uturi" to R.drawable.boss_uturi,
-    "Sangoon" to R.drawable.boss_sangoon,
-    "Bulgasal" to R.drawable.boss_bulgasal,
-    "Quint" to R.drawable.boss_quint,
-    "Muraka" to R.drawable.boss_muraka,
-    "Golden Pig King" to R.drawable.boss_golden_pig_king,
-)
+import com.gpowell.bdoboss.bossIcons
 
 /** Boss portrait; falls back to the colored monogram circle when no art exists. */
 @Composable
@@ -61,5 +50,32 @@ fun BossIcon(boss: String, size: Dp = 28.dp) {
                 fontSize = 14.sp,
             )
         }
+    }
+}
+
+/** Item icon loaded from assets/item_icons/<iconFile>; falls back to a gold-tinted box. */
+@Composable
+fun ItemIcon(iconFile: String, size: Dp = 36.dp) {
+    val context = LocalContext.current
+    val bitmap = remember(iconFile) {
+        if (iconFile.isBlank()) null
+        else runCatching {
+            context.assets.open("item_icons/$iconFile").use { BitmapFactory.decodeStream(it) }
+        }.getOrNull()?.asImageBitmap()
+    }
+    if (bitmap != null) {
+        Image(
+            bitmap,
+            contentDescription = null,
+            modifier = Modifier.size(size).clip(RoundedCornerShape(6.dp)),
+        )
+    } else {
+        Box(
+            Modifier
+                .size(size)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0x33D4AF37)),
+            contentAlignment = Alignment.Center,
+        ) { Text("⚔", fontSize = 16.sp) }
     }
 }
