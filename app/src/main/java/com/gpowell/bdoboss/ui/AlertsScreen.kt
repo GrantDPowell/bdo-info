@@ -54,7 +54,7 @@ import kotlinx.coroutines.withContext
 private val LEAD_CHOICES = listOf(5, 10, 15, 30, 60)
 
 @Composable
-fun SettingsScreen() {
+fun AlertsScreen() {
     val ctx = LocalContext.current
     val repo = remember { SettingsRepository(ctx.applicationContext) }
     val scope = rememberCoroutineScope()

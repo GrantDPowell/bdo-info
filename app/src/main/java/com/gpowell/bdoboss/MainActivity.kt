@@ -19,13 +19,20 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -39,9 +46,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.gpowell.bdoboss.data.BossInfo
@@ -53,11 +65,14 @@ import com.gpowell.bdoboss.domain.Spawn
 import com.gpowell.bdoboss.domain.SpawnCalculator
 import com.gpowell.bdoboss.live.BossAlertsSocket
 import com.gpowell.bdoboss.notify.AlarmScheduler
+import com.gpowell.bdoboss.ui.AppSettingsScreen
 import com.gpowell.bdoboss.ui.BossDetailSheet
+import com.gpowell.bdoboss.ui.BossesScreen
+import com.gpowell.bdoboss.ui.EventsScreen
+import com.gpowell.bdoboss.ui.HubScreen
 import com.gpowell.bdoboss.ui.LiveHeader
-import com.gpowell.bdoboss.ui.ScheduleScreen
-import com.gpowell.bdoboss.ui.SettingsScreen
-import com.gpowell.bdoboss.ui.TimersScreen
+import com.gpowell.bdoboss.ui.MarketScreen
+import com.gpowell.bdoboss.ui.ProfileScreen
 import com.gpowell.bdoboss.ui.theme.BdoBossTheme
 import com.gpowell.bdoboss.ui.theme.BdoGold
 import kotlinx.coroutines.Dispatchers
@@ -65,7 +80,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.OffsetDateTime
-import java.time.format.DateTimeParseException
+
+private data class TopTab(val label: String, val icon: ImageVector)
+
+// material-icons-core only (extended is pulled in solely for the password eye icons).
+private val TOP_TABS = listOf(
+    TopTab("Bosses", Icons.Filled.Notifications),
+    TopTab("Market", Icons.Filled.ShoppingCart),
+    TopTab("Events", Icons.Filled.Email),
+    TopTab("Profile", Icons.Filled.Person),
+    TopTab("Hub", Icons.Filled.Share),
+)
 
 class MainActivity : ComponentActivity() {
 
@@ -88,7 +113,7 @@ class MainActivity : ComponentActivity() {
             BdoBossTheme {
                 val notifPermLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
-                ) { /* result reflected by SettingsScreen banner; nothing to do here */ }
+                ) { /* result reflected by AlertsScreen banner; nothing to do here */ }
                 LaunchedEffect(Unit) {
                     if (Build.VERSION.SDK_INT >= 33 &&
                         ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS)
@@ -99,6 +124,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var tab by remember { mutableIntStateOf(0) }
+                var showSettings by remember { mutableStateOf(false) }
                 var schedule by remember { mutableStateOf<Schedule?>(null) }
                 var spawns by remember { mutableStateOf<List<Spawn>>(emptyList()) }
                 var bossInfo by remember { mutableStateOf<BossInfo?>(null) }
@@ -170,6 +196,31 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         containerColor = Color.Transparent,
                         contentColor = MaterialTheme.colorScheme.onBackground,
+                        topBar = {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .statusBarsPadding()
+                                    .padding(start = 16.dp, end = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "BDO INFO",
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = BdoGold,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 2.sp,
+                                )
+                                IconButton(onClick = { showSettings = true }) {
+                                    Icon(
+                                        Icons.Filled.Settings,
+                                        contentDescription = "Settings",
+                                        tint = BdoGold,
+                                    )
+                                }
+                            }
+                        },
                         bottomBar = {
                             NavigationBar(containerColor = Color(0xFF14110C)) {
                                 val navItemColors = NavigationBarItemDefaults.colors(
@@ -177,24 +228,14 @@ class MainActivity : ComponentActivity() {
                                     indicatorColor = BdoGold,
                                     selectedTextColor = BdoGold,
                                 )
-                                NavigationBarItem(
-                                    selected = tab == 0, onClick = { tab = 0 },
-                                    icon = { Icon(Icons.Filled.Notifications, contentDescription = "Timers") },
-                                    label = { Text("Timers") },
-                                    colors = navItemColors,
-                                )
-                                NavigationBarItem(
-                                    selected = tab == 1, onClick = { tab = 1 },
-                                    icon = { Icon(Icons.Filled.DateRange, contentDescription = "Schedule") },
-                                    label = { Text("Schedule") },
-                                    colors = navItemColors,
-                                )
-                                NavigationBarItem(
-                                    selected = tab == 2, onClick = { tab = 2 },
-                                    icon = { Icon(Icons.Filled.Settings, contentDescription = "Alerts") },
-                                    label = { Text("Alerts") },
-                                    colors = navItemColors,
-                                )
+                                TOP_TABS.forEachIndexed { i, t ->
+                                    NavigationBarItem(
+                                        selected = tab == i, onClick = { tab = i },
+                                        icon = { Icon(t.icon, contentDescription = t.label) },
+                                        label = { Text(t.label) },
+                                        colors = navItemColors,
+                                    )
+                                }
                             }
                         },
                     ) { pad ->
@@ -209,21 +250,25 @@ class MainActivity : ComponentActivity() {
                                 label = "tab",
                             ) { t ->
                                 when (t) {
-                                    0 -> TimersScreen(
-                                        spawns,
+                                    0 -> BossesScreen(
+                                        spawns = spawns,
+                                        schedule = schedule,
                                         onSpawnClick = { selectedSpawn = it },
                                         headerContent = { LiveHeader(live) },
                                     )
-                                    1 -> schedule?.let {
-                                        ScheduleScreen(it, onSpawnClick = { spawn -> selectedSpawn = spawn })
-                                    }
-                                    2 -> SettingsScreen()
+                                    1 -> MarketScreen()
+                                    2 -> EventsScreen(onOpenSettings = { showSettings = true })
+                                    3 -> ProfileScreen(onOpenSettings = { showSettings = true })
+                                    4 -> HubScreen()
                                 }
                             }
                         }
                         selectedSpawn?.let { spawn ->
                             BossDetailSheet(spawn, bossInfo) { selectedSpawn = null }
                         }
+                    }
+                    if (showSettings) {
+                        AppSettingsScreen(onBack = { showSettings = false })
                     }
                 }
             }
