@@ -79,8 +79,20 @@ class SettingsRepository(private val context: Context) {
         val QUIET_START = intPreferencesKey("quiet_start_min")
         val QUIET_END = intPreferencesKey("quiet_end_min")
 
-        @Suppress("unused")
         val API_KEY = stringPreferencesKey("bdoalerts_api_key")
+    }
+
+    // -------------------------------------------------------------------------
+    // BDO Alerts API key — stored in DataStore, never committed to the repo.
+    // Wire keyProvider = settingsRepository::apiKey into BdoAlertsApi.
+    // -------------------------------------------------------------------------
+
+    val apiKeyFlow: Flow<String> = context.dataStore.data.map { it[Keys.API_KEY] ?: "" }
+
+    suspend fun apiKey(): String = apiKeyFlow.first()
+
+    suspend fun setApiKey(value: String) {
+        context.dataStore.edit { it[Keys.API_KEY] = value }
     }
 
     val settings: Flow<NotificationSettings> = context.dataStore.data.map { it.toSettings() }
