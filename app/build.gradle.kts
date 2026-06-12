@@ -53,7 +53,7 @@ android {
         buildConfig = true
     }
     sourceSets {
-        getByName("test").resources.srcDirs("src/main/assets")
+        getByName("test").resources.srcDirs("src/main/assets", "src/test/resources")
     }
     testOptions {
         unitTests.isReturnDefaultValues = true

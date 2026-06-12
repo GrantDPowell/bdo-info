@@ -62,6 +62,7 @@ import com.gpowell.bdoboss.data.BossInfoUpdater
 import com.gpowell.bdoboss.data.Schedule
 import com.gpowell.bdoboss.data.ScheduleRepository
 import com.gpowell.bdoboss.data.ScheduleUpdater
+import com.gpowell.bdoboss.data.market.MarketRepository
 import com.gpowell.bdoboss.domain.Spawn
 import com.gpowell.bdoboss.domain.SpawnCalculator
 import com.gpowell.bdoboss.live.BossAlertsSocket
@@ -108,6 +109,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private lateinit var liveSocket: BossAlertsSocket
+
+    // Shared so the in-memory price cache (30-min TTL) survives sheet open/close.
+    private val marketRepo = MarketRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -278,7 +282,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         selectedSpawn?.let { spawn ->
-                            BossDetailSheet(spawn, bossInfo) { selectedSpawn = null }
+                            BossDetailSheet(spawn, bossInfo, marketRepo) { selectedSpawn = null }
                         }
                     }
                     if (showSettings) {

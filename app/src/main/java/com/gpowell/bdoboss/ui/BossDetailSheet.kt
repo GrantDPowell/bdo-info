@@ -32,19 +32,45 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gpowell.bdoboss.data.BossInfo
+import com.gpowell.bdoboss.data.api.ApiResult
+import com.gpowell.bdoboss.data.market.MarketPrice
+import com.gpowell.bdoboss.data.market.MarketRepository
 import com.gpowell.bdoboss.domain.Spawn
+import com.gpowell.bdoboss.ui.theme.BdoGold
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BossDetailSheet(spawn: Spawn, bossInfo: BossInfo?, onDismiss: () -> Unit) {
+fun BossDetailSheet(
+    spawn: Spawn,
+    bossInfo: BossInfo?,
+    market: MarketRepository,
+    onDismiss: () -> Unit,
+) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val fmt = remember { DateTimeFormatter.ofPattern("EEE h:mm a") }
     val localTime = fmt.format(spawn.at.atZone(ZoneId.systemDefault()))
 
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
+
+    // Live market prices for the drops, one batched call. Chips are simply
+    // absent until data arrives; on Offline/HttpError nothing renders.
+    var marketPrices by remember { mutableStateOf<Map<Int, MarketPrice>>(emptyMap()) }
+    LaunchedEffect(spawn) {
+        val ids = spawn.bosses
+            .mapNotNull { bossInfo?.forBoss(it) }
+            .flatMap { it.drops }
+            .map { it.itemId }
+            .filter { it > 0 }
+            .distinct()
+        if (ids.isEmpty()) return@LaunchedEffect
+        when (val result = market.prices(ids)) {
+            is ApiResult.Success -> marketPrices = result.data.associateBy { it.itemId }
+            else -> Unit // no chip — never block or error the sheet
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -119,6 +145,17 @@ fun BossDetailSheet(spawn: Spawn, bossInfo: BossInfo?, onDismiss: () -> Unit) {
                                             drop.note,
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    // Unlisted items come back from arsha as
+                                    // all-zero rows — only chip real listings.
+                                    val price = marketPrices[drop.itemId]
+                                    if (drop.itemId > 0 && price != null && price.basePrice > 0) {
+                                        Text(
+                                            "💰 ${formatSilver(price.basePrice)} · ${price.stock} in stock",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = BdoGold,
+                                            fontWeight = FontWeight.Medium,
                                         )
                                     }
                                 }
