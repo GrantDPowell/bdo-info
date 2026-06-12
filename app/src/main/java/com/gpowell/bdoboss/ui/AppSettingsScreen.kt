@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -29,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -69,6 +71,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
 
     var keyInput by remember { mutableStateOf("") }
     var keyVisible by remember { mutableStateOf(false) }
+    var showClearConfirm by remember { mutableStateOf(false) }
 
     val backgroundBrush = remember {
         Brush.verticalGradient(
@@ -138,16 +141,27 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                     cursorColor = BdoGold,
                 ),
             )
-            Button(
-                onClick = {
-                    val trimmed = keyInput.trim()
-                    scope.launch { repo.setApiKey(trimmed) }
-                    keyInput = ""
-                    keyVisible = false
-                },
-                enabled = keyInput.isNotBlank(),
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Save") }
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = {
+                        val trimmed = keyInput.trim()
+                        scope.launch { repo.setApiKey(trimmed) }
+                        keyInput = ""
+                        keyVisible = false
+                    },
+                    enabled = keyInput.isNotBlank(),
+                    modifier = Modifier.weight(1f),
+                ) { Text("Save") }
+                if (savedKey.isNotBlank()) {
+                    TextButton(onClick = { showClearConfirm = true }) {
+                        Text("Clear key")
+                    }
+                }
+            }
             Text(
                 if (savedKey.isBlank()) "No key — Events & Profile are locked" else "Key saved ✓",
                 style = MaterialTheme.typography.bodySmall,
@@ -182,6 +196,23 @@ fun AppSettingsScreen(onBack: () -> Unit) {
             }
             Spacer(Modifier.width(0.dp)) // bottom breathing room via spacedBy
         }
+    }
+
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text("Clear API key?") },
+            text = { Text("Events and Profile will lock until a new key is saved.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch { repo.setApiKey("") }
+                    showClearConfirm = false
+                }) { Text("Clear") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 

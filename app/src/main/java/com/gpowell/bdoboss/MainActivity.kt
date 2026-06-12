@@ -69,10 +69,10 @@ import com.gpowell.bdoboss.ui.AppSettingsScreen
 import com.gpowell.bdoboss.ui.BossDetailSheet
 import com.gpowell.bdoboss.ui.BossesScreen
 import com.gpowell.bdoboss.ui.EventsScreen
-import com.gpowell.bdoboss.ui.HubScreen
 import com.gpowell.bdoboss.ui.LiveHeader
 import com.gpowell.bdoboss.ui.MarketScreen
 import com.gpowell.bdoboss.ui.ProfileScreen
+import com.gpowell.bdoboss.ui.hub.HubScreen
 import com.gpowell.bdoboss.ui.theme.BdoBossTheme
 import com.gpowell.bdoboss.ui.theme.BdoGold
 import kotlinx.coroutines.Dispatchers
@@ -83,7 +83,8 @@ import java.time.OffsetDateTime
 
 private data class TopTab(val label: String, val icon: ImageVector)
 
-// material-icons-core only (extended is pulled in solely for the password eye icons).
+// material-icons-extended is required: ShoppingCart, Lock, and Visibility/VisibilityOff
+// (used here and in the settings/locked screens) aren't in icons-core.
 private val TOP_TABS = listOf(
     TopTab("Bosses", Icons.Filled.Notifications),
     TopTab("Market", Icons.Filled.ShoppingCart),
