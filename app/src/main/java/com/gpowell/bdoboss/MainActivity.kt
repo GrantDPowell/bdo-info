@@ -1,10 +1,15 @@
 package com.gpowell.bdoboss
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -25,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.gpowell.bdoboss.data.Schedule
 import com.gpowell.bdoboss.data.ScheduleRepository
@@ -62,6 +68,18 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             BdoBossTheme {
+                val notifPermLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission(),
+                ) { /* result reflected by SettingsScreen banner; nothing to do here */ }
+                LaunchedEffect(Unit) {
+                    if (Build.VERSION.SDK_INT >= 33 &&
+                        ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS)
+                            != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+
                 var tab by remember { mutableIntStateOf(0) }
                 var schedule by remember { mutableStateOf<Schedule?>(null) }
                 var spawns by remember { mutableStateOf<List<Spawn>>(emptyList()) }

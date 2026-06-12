@@ -22,6 +22,7 @@ object AlarmScheduler {
     const val EXTRA_BOSS = "boss"
     const val EXTRA_LEAD = "lead"
     const val EXTRA_SPAWN_EPOCH = "spawn_epoch"
+    const val EXTRA_REFRESH = "refresh"
     private const val WINDOW_HOURS = 48L
     private const val MAX_SPAWNS = 64
     private val rearmMutex = Mutex()
@@ -67,6 +68,23 @@ object AlarmScheduler {
                 }
                 codes += code
             }
+
+            // Arm a 24h refresh alarm so sparse configs (e.g. Vell with 93h gaps) never starve.
+            val refreshCode = "refresh".hashCode()
+            val refreshIntent = Intent(app, AlarmReceiver::class.java)
+                .putExtra(EXTRA_REFRESH, true)
+            val refreshPi = PendingIntent.getBroadcast(
+                app, refreshCode, refreshIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val refreshTriggerMs = now.plusSeconds(24 * 3600).toEpochMilli()
+            if (canExact) {
+                alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, refreshTriggerMs, refreshPi)
+            } else {
+                alarmMgr.setWindow(AlarmManager.RTC_WAKEUP, refreshTriggerMs, 60 * 60_000L, refreshPi)
+            }
+            codes += refreshCode
+
             codesFile.writeText(codes.joinToString("\n"))
         }
     }
