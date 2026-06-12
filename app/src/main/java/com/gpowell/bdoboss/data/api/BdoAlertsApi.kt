@@ -383,6 +383,13 @@ class BdoAlertsApi(
             mapOf("item_ids" to itemIds.joinToString(","), "region" to region),
         )
 
+    /**
+     * GET /api/market/price-history/status — price-history tracking status and
+     * coverage statistics. Cache hint: low-churn diagnostics; hourly is plenty.
+     */
+    suspend fun marketPriceHistoryStatus(): ApiResult<JsonElement> =
+        getRaw("/api/market/price-history/status")
+
     // =========================================================================
     // Boss timers & world state
     // =========================================================================
