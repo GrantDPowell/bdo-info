@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -18,27 +17,35 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.ShowChart
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,7 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -60,14 +67,13 @@ import com.gpowell.bdoboss.data.BossInfo
 import com.gpowell.bdoboss.data.BossInfoRepository
 import com.gpowell.bdoboss.data.BossInfoUpdater
 import com.gpowell.bdoboss.data.FavoritesRepository
-import com.gpowell.bdoboss.data.Schedule
-import com.gpowell.bdoboss.data.ScheduleRepository
-import com.gpowell.bdoboss.data.ScheduleUpdater
+import com.gpowell.bdoboss.data.LiveSpawnCache
+import com.gpowell.bdoboss.data.SettingsRepository
 import com.gpowell.bdoboss.data.market.ItemIndexRepository
 import com.gpowell.bdoboss.data.market.MarketRepository
 import com.gpowell.bdoboss.domain.Spawn
-import com.gpowell.bdoboss.domain.SpawnCalculator
 import com.gpowell.bdoboss.live.BossAlertsSocket
+import com.gpowell.bdoboss.live.WsBoss
 import com.gpowell.bdoboss.notify.AlarmScheduler
 import com.gpowell.bdoboss.ui.AppSettingsScreen
 import com.gpowell.bdoboss.ui.BossDetailSheet
@@ -77,8 +83,13 @@ import com.gpowell.bdoboss.ui.LiveHeader
 import com.gpowell.bdoboss.ui.ProfileScreen
 import com.gpowell.bdoboss.ui.hub.HubScreen
 import com.gpowell.bdoboss.ui.market.MarketScreen
+import com.gpowell.bdoboss.ui.theme.BdoBackground
 import com.gpowell.bdoboss.ui.theme.BdoBossTheme
-import com.gpowell.bdoboss.ui.theme.BdoGold
+import com.gpowell.bdoboss.ui.theme.BdoColors
+import com.gpowell.bdoboss.ui.theme.BdoType
+import com.gpowell.bdoboss.ui.theme.Diamond
+import com.gpowell.bdoboss.ui.theme.LocalEffectsEnabled
+import com.gpowell.bdoboss.ui.theme.goldGlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -87,25 +98,36 @@ import java.time.OffsetDateTime
 
 private data class TopTab(val label: String, val icon: ImageVector)
 
-// material-icons-extended is required: ShoppingCart, Lock, and Visibility/VisibilityOff
-// (used here and in the settings/locked screens) aren't in icons-core.
+/**
+ * Build the displayed upcoming-spawn list from the LIVE bdoalerts feed (authoritative &
+ * current). Pearl Abyss revises the world-boss schedule periodically, so the bundled
+ * `schedule_na.json` can drift; when the socket is connected we show its real next-spawns
+ * (merging co-spawns per instant). The local schedule still drives offline alarms.
+ */
+private fun liveToSpawns(bosses: List<WsBoss>): List<Spawn> {
+    val byInstant = sortedMapOf<Instant, MutableList<String>>()
+    for (b in bosses) {
+        val raw = b.nextSpawn ?: continue
+        val at = runCatching { OffsetDateTime.parse(raw).toInstant() }.getOrNull() ?: continue
+        byInstant.getOrPut(at) { mutableListOf() }.add(b.bossName)
+    }
+    return byInstant.entries.map { Spawn(it.key, it.value.toList()) }
+}
+
+// material-icons-extended is required: these outlined glyphs (and Lock/Visibility used in
+// the settings/locked screens) aren't in icons-core.
 private val TOP_TABS = listOf(
-    TopTab("Bosses", Icons.Filled.Notifications),
-    TopTab("Market", Icons.Filled.ShoppingCart),
-    TopTab("Events", Icons.Filled.Email),
-    TopTab("Profile", Icons.Filled.Person),
-    TopTab("Hub", Icons.Filled.Share),
+    TopTab("Bosses", Icons.Outlined.Timer),
+    TopTab("Market", Icons.Outlined.ShowChart),
+    TopTab("Events", Icons.Outlined.CalendarMonth),
+    TopTab("Profile", Icons.Outlined.Person),
+    TopTab("Hub", Icons.Outlined.Public),
 )
 
 class MainActivity : ComponentActivity() {
 
     companion object {
-        // Over-the-air schedule updates: bump `version` in this file on GitHub and the
-        // app picks it up on next launch — no app update needed.
-        private const val SCHEDULE_URL =
-            "https://raw.githubusercontent.com/GrantDPowell/bdo-info/master/app/src/main/assets/schedule_na.json"
-
-        // Same OTA mechanism for the boss drop data: bump `version` in boss_info.json on GitHub.
+        // OTA mechanism for the boss drop data: bump `version` in boss_info.json on GitHub.
         private const val BOSS_INFO_URL =
             "https://raw.githubusercontent.com/GrantDPowell/bdo-info/master/app/src/main/assets/boss_info.json"
     }
@@ -128,7 +150,10 @@ class MainActivity : ComponentActivity() {
         liveSocket = BossAlertsSocket(lifecycleScope)
 
         setContent {
+            val settingsRepo = remember { SettingsRepository(applicationContext) }
+            val effectsEnabled by settingsRepo.effectsEnabledFlow.collectAsState(initial = true)
             BdoBossTheme {
+              CompositionLocalProvider(LocalEffectsEnabled provides effectsEnabled) {
                 val notifPermLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
                 ) { /* result reflected by AlertsScreen banner; nothing to do here */ }
@@ -146,18 +171,17 @@ class MainActivity : ComponentActivity() {
                 // Cross-tab nav: Hub ITEM favorites jump into Market item detail.
                 // MarketScreen consumes the request and clears it.
                 var marketDetailItemId by remember { mutableStateOf<Int?>(null) }
-                var schedule by remember { mutableStateOf<Schedule?>(null) }
-                var spawns by remember { mutableStateOf<List<Spawn>>(emptyList()) }
+                // Single source of truth: the latest LIVE spawns (cached for offline/boot).
+                var liveSpawns by remember { mutableStateOf<List<Spawn>>(emptyList()) }
+                var lastArmedSig by remember { mutableStateOf("") }
                 var bossInfo by remember { mutableStateOf<BossInfo?>(null) }
                 var selectedSpawn by remember { mutableStateOf<Spawn?>(null) }
                 val live by liveSocket.state.collectAsState()
 
                 LaunchedEffect(Unit) {
-                    val loaded = withContext(Dispatchers.IO) {
-                        ScheduleRepository(this@MainActivity).load()
-                    }
-                    schedule = loaded
-                    spawns = SpawnCalculator.upcoming(loaded, Instant.now(), 40)
+                    // Seed from the last-known live spawns (so the UI + alarms have data
+                    // before the socket reconnects). The live feed refreshes these below.
+                    liveSpawns = withContext(Dispatchers.IO) { LiveSpawnCache.load(this@MainActivity) }
                     lifecycleScope.launch { AlarmScheduler.rearm(this@MainActivity) }
 
                     bossInfo = runCatching {
@@ -166,15 +190,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }.getOrNull()
 
-                    if (ScheduleUpdater(this@MainActivity.applicationContext).checkForUpdate(SCHEDULE_URL)) {
-                        val updated = withContext(Dispatchers.IO) {
-                            ScheduleRepository(this@MainActivity).load()
-                        }
-                        schedule = updated
-                        spawns = SpawnCalculator.upcoming(updated, Instant.now(), 40)
-                        AlarmScheduler.rearm(this@MainActivity.applicationContext)
-                    }
-
+                    // Boss drop data is still OTA-updatable (it's reference data, not a schedule).
                     if (BossInfoUpdater(this@MainActivity.applicationContext).checkForUpdate(BOSS_INFO_URL)) {
                         runCatching {
                             withContext(Dispatchers.IO) {
@@ -184,44 +200,22 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Drift check: compare live boss next_spawn against local schedule
+                // The live feed is the single source of truth. Snapshot it, and when the
+                // set of upcoming spawns actually changes, persist it + re-arm alarms so
+                // notifications always track the real current schedule (no static data).
                 LaunchedEffect(live.bosses) {
-                    if (live.bosses.isEmpty() || spawns.isEmpty()) return@LaunchedEffect
-                    for (liveBoss in live.bosses) {
-                        val rawSpawn = liveBoss.nextSpawn ?: continue
-                        val liveInstant = runCatching {
-                            OffsetDateTime.parse(rawSpawn).toInstant()
-                        }.getOrElse {
-                            // next_spawn uses ISO-8601 with offset (e.g. -07:00) — not strict UTC.
-                            // If unparseable just log the raw string.
-                            Log.w("ScheduleDrift", "unparseable next_spawn for ${liveBoss.bossName}: $rawSpawn")
-                            null
-                        } ?: continue
-
-                        // Find the nearest upcoming local spawn that includes this boss
-                        val localMatch = spawns
-                            .filter { liveBoss.bossName in it.bosses }
-                            .minByOrNull { Math.abs(it.at.epochSecond - liveInstant.epochSecond) }
-                            ?: continue
-
-                        val diffSeconds = Math.abs(localMatch.at.epochSecond - liveInstant.epochSecond)
-                        if (diffSeconds > 120) {
-                            Log.w(
-                                "ScheduleDrift",
-                                "${liveBoss.bossName}: live=${rawSpawn} local=${localMatch.at} diff=${diffSeconds}s",
-                            )
-                        }
-                    }
+                    if (live.bosses.isEmpty()) return@LaunchedEffect
+                    val fresh = liveToSpawns(live.bosses)
+                    if (fresh.isEmpty()) return@LaunchedEffect
+                    val sig = fresh.joinToString(";") { "${it.at.epochSecond}:${it.bosses.sorted()}" }
+                    if (sig == lastArmedSig) return@LaunchedEffect
+                    lastArmedSig = sig
+                    liveSpawns = fresh
+                    withContext(Dispatchers.IO) { LiveSpawnCache.save(this@MainActivity, fresh) }
+                    lifecycleScope.launch { AlarmScheduler.rearm(this@MainActivity.applicationContext) }
                 }
 
-                val backgroundBrush = remember {
-                    Brush.verticalGradient(
-                        0f to Color(0xFF0B0A08),
-                        0.5f to Color(0xFF14110C),
-                        1f to Color(0xFF0B0A08),
-                    )
-                }
-                Box(Modifier.fillMaxSize().background(backgroundBrush)) {
+                Box(Modifier.fillMaxSize().background(BdoBackground)) {
                     Scaffold(
                         containerColor = Color.Transparent,
                         contentColor = MaterialTheme.colorScheme.onBackground,
@@ -230,42 +224,41 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .statusBarsPadding()
-                                    .padding(start = 16.dp, end = 4.dp),
+                                    .height(56.dp)
+                                    .padding(start = 18.dp, end = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    "BDO INFO",
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = BdoGold,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 2.sp,
-                                )
+                                Diamond(size = 10.dp, glow = true)
+                                Spacer(Modifier.size(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        "BDO INFO",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = BdoColors.onBg,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 3.sp,
+                                    )
+                                    Text(
+                                        "World boss timers · NA",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = BdoColors.onFaint,
+                                    )
+                                }
                                 IconButton(onClick = { showSettings = true }) {
                                     Icon(
                                         Icons.Filled.Settings,
                                         contentDescription = "Settings",
-                                        tint = BdoGold,
+                                        tint = BdoColors.onMuted,
                                     )
                                 }
                             }
                         },
                         bottomBar = {
-                            NavigationBar(containerColor = Color(0xFF14110C)) {
-                                val navItemColors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Color.Black,
-                                    indicatorColor = BdoGold,
-                                    selectedTextColor = BdoGold,
-                                )
-                                TOP_TABS.forEachIndexed { i, t ->
-                                    NavigationBarItem(
-                                        selected = tab == i, onClick = { tab = i },
-                                        icon = { Icon(t.icon, contentDescription = t.label) },
-                                        label = { Text(t.label) },
-                                        colors = navItemColors,
-                                    )
-                                }
-                            }
+                            BdoBottomBar(
+                                tabs = TOP_TABS,
+                                selected = tab,
+                                onSelect = { tab = it },
+                            )
                         },
                     ) { pad ->
                         Box(Modifier.fillMaxSize().padding(pad)) {
@@ -280,8 +273,7 @@ class MainActivity : ComponentActivity() {
                             ) { t ->
                                 when (t) {
                                     0 -> BossesScreen(
-                                        spawns = spawns,
-                                        schedule = schedule,
+                                        spawns = liveSpawns,
                                         onSpawnClick = { selectedSpawn = it },
                                         headerContent = { LiveHeader(live) },
                                     )
@@ -311,6 +303,7 @@ class MainActivity : ComponentActivity() {
                         AppSettingsScreen(onBack = { showSettings = false })
                     }
                 }
+              }
             }
         }
     }
@@ -323,5 +316,66 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         liveSocket.disconnect()
+    }
+}
+
+/**
+ * Custom 5-item bottom nav. Selected = goldHi icon with a glowing diamond indicator above;
+ * unselected = onFaint. No M3 selection pill — the diamond + glow is the indicator.
+ */
+@Composable
+private fun BdoBottomBar(
+    tabs: List<TopTab>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(BdoColors.bg1)
+            .padding(top = 1.dp)
+            .background(Color.Transparent),
+    ) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(BdoColors.line))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(BdoColors.bg1)
+                .navigationBarsPadding()
+                .height(62.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tabs.forEachIndexed { i, t ->
+                val on = i == selected
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { onSelect(i) }
+                        .padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    if (on) Diamond(size = 5.dp, glow = true) else Spacer(Modifier.height(5.dp))
+                    Icon(
+                        t.icon,
+                        contentDescription = t.label,
+                        tint = if (on) BdoColors.goldHi else BdoColors.onFaint,
+                        modifier = Modifier
+                            .size(23.dp)
+                            .then(if (on) Modifier.goldGlow(RoundedCornerShape(50), 8.dp) else Modifier),
+                    )
+                    Text(
+                        t.label.uppercase(),
+                        style = BdoType.overline.copy(fontSize = 9.sp, letterSpacing = 1.sp),
+                        color = if (on) BdoColors.goldHi else BdoColors.onFaint,
+                    )
+                }
+            }
+        }
     }
 }

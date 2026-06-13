@@ -17,4 +17,6 @@ val bossIcons: Map<String, Int> = mapOf(
     "Quint" to R.drawable.boss_quint,
     "Muraka" to R.drawable.boss_muraka,
     "Golden Pig King" to R.drawable.boss_golden_pig_king,
+    // Field bosses that appear in the live feed (bundled .webp so they work offline / on VPN).
+    "Black Shadow" to R.drawable.boss_black_shadow,
 )

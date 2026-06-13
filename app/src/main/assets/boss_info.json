@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "disclaimer": "Drop rates in Black Desert Online are almost never published by Pearl Abyss. All percentages below are community estimates compiled from fan sites, wikis, forum threads, and patch notes, and may be outdated or wrong. Entries marked 'official' reflect published patch-note mechanics, not published probabilities. Use at your own risk.",
   "bosses": [
     {
@@ -758,6 +758,57 @@
           "chance": "",
           "confidence": "unknown",
           "note": "High-value filler; shared roll with Gold Bar 1,000G. Weekly loot resets Thursday midnight UTC."
+        }
+      ]
+    },
+    {
+      "name": "Black Shadow",
+      "drops": [
+        {
+          "item": "Eye of the Ruins Ring",
+          "chance": "low",
+          "confidence": "community-estimated",
+          "note": "Yellow-grade ring — the signature high-value drop from this raid.",
+          "item_id": 12060,
+          "icon": ""
+        },
+        {
+          "item": "Ode to Heroes of Yore",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Skill/awakening material.",
+          "item_id": 768495,
+          "icon": ""
+        },
+        {
+          "item": "Combined Magic Crystal - Macalod",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Combined magic crystal reward.",
+          "item_id": 15663,
+          "icon": ""
+        },
+        {
+          "item": "Ancient Spirit Dust",
+          "chance": "common",
+          "confidence": "community-estimated",
+          "note": "Common material drop.",
+          "item_id": 721002,
+          "icon": ""
+        },
+        {
+          "item": "Advice of Valks (+10 to +40)",
+          "chance": "",
+          "confidence": "unknown",
+          "note": "Enhancement advice; tier varies.",
+          "icon": ""
+        },
+        {
+          "item": "Magical Black Stones / Black Stones",
+          "chance": "common",
+          "confidence": "community-estimated",
+          "note": "Enhancement filler.",
+          "icon": ""
         }
       ]
     }

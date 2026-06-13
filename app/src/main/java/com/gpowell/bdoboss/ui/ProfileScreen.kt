@@ -15,7 +15,9 @@ fun ProfileScreen(onOpenSettings: () -> Unit) {
 
     if (apiKey.isBlank()) {
         LockedFeature(
-            title = "Profile needs a BDO Alerts API key",
+            title = "Adventurer Profile",
+            blurb = "Look up any Family or character: gear, lifeskills, and guild — powered by BDO Alerts.",
+            bullets = listOf("Gearscore & class breakdown", "Lifeskill levels", "Guild & node-war history"),
             onOpenSettings = onOpenSettings,
         )
     } else {

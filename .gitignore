@@ -7,3 +7,7 @@ local.properties
 
 keystore/
 keystore.properties
+
+# Release build artifacts (kept off git)
+*.apk
+*.aab

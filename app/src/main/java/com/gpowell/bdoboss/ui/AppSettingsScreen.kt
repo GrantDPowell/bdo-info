@@ -33,6 +33,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -78,6 +80,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
     val repo = remember { SettingsRepository(ctx.applicationContext) }
     val scope = rememberCoroutineScope()
     val savedKey by repo.apiKeyFlow.collectAsState(initial = "")
+    val effectsEnabled by repo.effectsEnabledFlow.collectAsState(initial = true)
 
     var keyInput by remember { mutableStateOf("") }
     var keyVisible by remember { mutableStateOf(false) }
@@ -196,6 +199,31 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            SettingsSectionHeader("ANIMATED EFFECTS")
+            Card {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Living effects", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Gold dust, radar sweep, shockwave, shimmer & spark bursts. Turn off for a calm, battery-light UI.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = effectsEnabled,
+                        onCheckedChange = { scope.launch { repo.setEffectsEnabled(it) } },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = BdoGold,
+                            checkedTrackColor = BdoGold.copy(alpha = 0.4f),
+                        ),
+                    )
+                }
+            }
 
             SettingsSectionHeader("ABOUT")
             Card {

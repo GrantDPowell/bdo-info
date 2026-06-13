@@ -133,7 +133,18 @@ fun BossDetailSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                ItemIcon(drop.icon)
+                                // Real Central Market icon (resolver + disk cache), in sync
+                                // with the Market tab. Falls back to a grade monogram.
+                                if (drop.itemId > 0) {
+                                    com.gpowell.bdoboss.ui.market.ItemIcon(
+                                        itemId = drop.itemId,
+                                        name = drop.item,
+                                        grade = 0,
+                                        size = 40.dp,
+                                    )
+                                } else {
+                                    ItemIcon(drop.icon)
+                                }
                                 Column(Modifier.weight(1f)) {
                                     Text(
                                         drop.item,

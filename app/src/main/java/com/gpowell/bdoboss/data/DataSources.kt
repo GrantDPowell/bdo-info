@@ -25,9 +25,25 @@ data class DataSource(
 
 object DataSources {
 
-    /** Short call timeout — a status check should never hang the panel. */
+    /**
+     * Short call timeout — a status check should never hang the panel. A browser
+     * User-Agent + Referer keeps Imperva-fronted hosts (bdocodex) from challenging
+     * the probe and falsely reading as "offline".
+     */
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(8, TimeUnit.SECONDS)
+        .callTimeout(7, TimeUnit.SECONDS)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .addInterceptor { chain ->
+            val req = chain.request().newBuilder()
+                .header(
+                    "User-Agent",
+                    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 " +
+                        "(KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36",
+                )
+                .header("Referer", "https://bdocodex.com/")
+                .build()
+            chain.proceed(req)
+        }
         .build()
 
     /** Every source/API behind BDO Info, with what it does and who to credit. */
@@ -35,15 +51,17 @@ object DataSources {
         DataSource(
             name = "arsha.io",
             role = "Primary Central Market source: live prices, category listings, " +
-                "and 90-day price history.",
+                "and 90-day price history. Reads Pearl Abyss's market API — when PA " +
+                "blocks it (Imperva), this shows Offline until PA clears (usually minutes).",
             attribution = "Community market API by Arsha",
             siteUrl = "https://api.arsha.io",
             healthUrl = "https://api.arsha.io/v2/na/item?id=44195&lang=en",
         ),
         DataSource(
             name = "BlackDesertMarket.com",
-            role = "Fallback market source — used for prices & categories when " +
-                "arsha is rate-limited (no price history).",
+            role = "Fallback market source for prices & categories. Reads the SAME " +
+                "Pearl Abyss API as arsha, so it goes Offline at the same time when PA " +
+                "blocks both (no independent data).",
             attribution = "Market mirror by sobekcore",
             siteUrl = "https://blackdesertmarket.com",
             healthUrl = "https://api.blackdesertmarket.com/item/44195?region=na&language=en",

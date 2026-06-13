@@ -5,10 +5,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import com.gpowell.bdoboss.data.ScheduleRepository
+import com.gpowell.bdoboss.data.LiveSpawnCache
 import com.gpowell.bdoboss.data.SettingsRepository
 import com.gpowell.bdoboss.domain.ReminderExpander
-import com.gpowell.bdoboss.domain.SpawnCalculator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -23,8 +22,8 @@ object AlarmScheduler {
     const val EXTRA_LEAD = "lead"
     const val EXTRA_SPAWN_EPOCH = "spawn_epoch"
     const val EXTRA_REFRESH = "refresh"
-    private const val WINDOW_HOURS = 48L
-    private const val MAX_SPAWNS = 64
+    // Wide enough to cover sparse bosses' next live spawn (e.g. Vell ~3.5 days out).
+    private const val WINDOW_HOURS = 120L
     private val rearmMutex = Mutex()
 
     /** Cancels previously armed alarms and arms the next ~48h of reminders. Safe to call repeatedly. */
@@ -42,10 +41,11 @@ object AlarmScheduler {
             }
 
             val now = Instant.now()
-            val schedule = ScheduleRepository(app).load()
             val settings = SettingsRepository(app).current()
-            val spawns = SpawnCalculator.upcoming(schedule, now, MAX_SPAWNS)
-                .filter { Duration.between(now, it.at).toHours() <= WINDOW_HOURS }
+            // Source of truth = the last-known LIVE spawns (no static/recurring schedule).
+            val spawns = LiveSpawnCache.load(app)
+                .filter { it.at > now && Duration.between(now, it.at).toHours() <= WINDOW_HOURS }
+                .sortedBy { it.at }
             val reminders = ReminderExpander.expand(spawns, settings, now, ZoneId.systemDefault())
 
             val canExact = if (Build.VERSION.SDK_INT < 31) true else alarmMgr.canScheduleExactAlarms()

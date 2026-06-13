@@ -3,6 +3,9 @@ package com.gpowell.bdoboss.ui.market
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +46,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -61,7 +65,11 @@ import com.gpowell.bdoboss.data.market.MarketPrice
 import com.gpowell.bdoboss.data.market.MarketRepository
 import com.gpowell.bdoboss.data.market.PricePoint
 import com.gpowell.bdoboss.ui.formatSilver
+import com.gpowell.bdoboss.ui.theme.BdoCard
+import com.gpowell.bdoboss.ui.theme.BdoColors
 import com.gpowell.bdoboss.ui.theme.BdoGold
+import com.gpowell.bdoboss.ui.theme.BdoType
+import com.gpowell.bdoboss.ui.theme.goldGlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -307,9 +315,25 @@ private fun StatsPanel(row: MarketPrice) {
         null
     }
     val now = System.currentTimeMillis() / 1000L
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), Arrangement.spacedBy(6.dp)) {
-            StatRow("Base price", formatSilver(row.basePrice), valueColor = BdoGold)
+    BdoCard(facet = true, glow = true, modifier = Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
+        // Price hero
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                Text("BASE PRICE", style = BdoType.overline, color = BdoColors.onFaint)
+                Spacer(Modifier.height(4.dp))
+                Text(formatSilver(row.basePrice), style = BdoType.heroSm, color = BdoColors.goldHi)
+            }
+            if (spread != null) {
+                val sign = if (spread >= 0) "▲" else "▼"
+                Text(
+                    "$sign %.1f%%".format(kotlin.math.abs(spread)),
+                    style = BdoType.num.copy(fontSize = 15.sp),
+                    color = if (spread >= 0) BdoColors.up else BdoColors.down,
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Column(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
             StatRow("In stock", row.stock.toString())
             StatRow("Total trades", formatCompact(row.totalTrades))
             if (row.priceMin > 0 || row.priceMax > 0) {
@@ -412,6 +436,15 @@ private fun PriceHistoryChart(points: List<PricePoint>, modifier: Modifier = Mod
     val max = points.maxOf { it.price }
     val last = points.last().price
     val dimColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    // Draw-on: the line trims 0→1 via PathMeasure when the data changes.
+    val progress = remember(points) { Animatable(0f) }
+    LaunchedEffect(points) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, tween(1100, easing = CubicBezierEasing(0.4f, 0f, 0.1f, 1f)))
+    }
+    val measure = remember { PathMeasure() }
+
     Box(modifier) {
         Canvas(Modifier.fillMaxSize()) {
             val span = (max - min).coerceAtLeast(1L).toFloat()
@@ -451,16 +484,21 @@ private fun PriceHistoryChart(points: List<PricePoint>, modifier: Modifier = Mod
             drawPath(
                 fill,
                 brush = Brush.verticalGradient(
-                    listOf(BdoGold.copy(alpha = 0.25f), Color.Transparent),
+                    listOf(BdoColors.goldGlow.copy(alpha = 0.45f), Color.Transparent),
                 ),
+                alpha = progress.value,
             )
-            drawPath(
-                line,
-                color = BdoGold,
-                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-            )
-            // Last-price marker.
-            drawCircle(BdoGold, radius = 3.dp.toPx(), center = Offset(size.width, yOf(last)))
+            // Trim the line to the animated fraction.
+            val drawn = Path()
+            measure.setPath(line, false)
+            measure.getSegment(0f, measure.length * progress.value, drawn, true)
+            // Soft glow underlay + bright line.
+            drawPath(drawn, color = BdoColors.goldGlow, style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(drawn, color = BdoColors.goldHi, style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            // Last-price marker once fully drawn.
+            if (progress.value >= 0.999f) {
+                drawCircle(BdoColors.goldHi, radius = 3.5.dp.toPx(), center = Offset(size.width, yOf(last)))
+            }
         }
         Text(
             formatSilver(max),

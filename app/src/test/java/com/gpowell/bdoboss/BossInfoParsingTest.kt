@@ -18,9 +18,10 @@ class BossInfoParsingTest {
 
     private fun load(): BossInfo = json.decodeFromString(BossInfo.serializer(), loadResource("boss_info.json"))
 
-    @Test fun `parses with 13 bosses and a disclaimer`() {
+    @Test fun `parses with at least 13 bosses and a disclaimer`() {
         val info = load()
-        assertEquals(13, info.bosses.size)
+        // 13 scheduled world bosses + extras (e.g. Black Shadow field-boss raid).
+        assertTrue(info.bosses.size >= 13)
         assertTrue(info.disclaimer.isNotBlank())
     }
 
@@ -28,9 +29,12 @@ class BossInfoParsingTest {
         assertTrue(load().version >= 2)
     }
 
-    @Test fun `boss names exactly match the schedule boss list`() {
+    @Test fun `every scheduled boss has drop data (extras like field bosses are allowed)`() {
         val schedule = json.decodeFromString(Schedule.serializer(), loadResource("schedule_na.json"))
-        assertEquals(schedule.bosses.toSet(), load().bosses.map { it.name }.toSet())
+        val infoNames = load().bosses.map { it.name }.toSet()
+        // Every boss on the weekly schedule must have drop data; boss_info MAY carry
+        // extras that aren't on the fixed schedule (e.g. Black Shadow field-boss raid).
+        assertTrue(infoNames.containsAll(schedule.bosses.toSet()))
     }
 
     @Test fun `every boss has 3 to 10 drops and every drop has an item and confidence`() {

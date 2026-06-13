@@ -38,10 +38,16 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -72,7 +78,10 @@ import com.gpowell.bdoboss.data.market.MarketListing
 import com.gpowell.bdoboss.data.market.MarketPrice
 import com.gpowell.bdoboss.data.market.MarketRepository
 import com.gpowell.bdoboss.ui.formatSilver
+import com.gpowell.bdoboss.ui.theme.BdoCard
+import com.gpowell.bdoboss.ui.theme.BdoColors
 import com.gpowell.bdoboss.ui.theme.BdoGold
+import com.gpowell.bdoboss.ui.theme.SectionLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -211,6 +220,24 @@ private fun MarketMain(
     val sortedWatch = remember(watchlist, watchPrices, sort) {
         sortWatchlist(watchlist, watchPrices, sort)
     }
+    val terminalItems = remember(sortedWatch, watchPrices, watchGrades) {
+        sortedWatch.map { fav -> TerminalItem(fav, watchPrices[fav.itemId], watchGrades[fav.itemId] ?: 0) }
+    }
+    // Spotlight cycles through the watchlist every 5s (most-moving first).
+    val spotlightOrder = remember(terminalItems) {
+        terminalItems.sortedByDescending { kotlin.math.abs(it.spread) }
+    }
+    var spotIndex by remember { mutableIntStateOf(0) }
+    LaunchedEffect(spotlightOrder.size) {
+        if (spotlightOrder.size <= 1) { spotIndex = 0; return@LaunchedEffect }
+        while (true) {
+            delay(5000)
+            spotIndex = (spotIndex + 1) % spotlightOrder.size
+        }
+    }
+    val spotlight = spotlightOrder.getOrNull(
+        if (spotlightOrder.isEmpty()) 0 else spotIndex % spotlightOrder.size,
+    )
 
     // Target-setting dialog target (the favorite being edited), null = closed.
     var targetFor by remember { mutableStateOf<Favorite?>(null) }
@@ -231,44 +258,15 @@ private fun MarketMain(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        if (watchlist.isNotEmpty()) {
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    MarketSectionHeader("WATCHLIST")
-                    Spacer(Modifier.weight(1f))
-                    WatchSortChips(sort) { sort = it }
-                }
-            }
-            items(sortedWatch, key = { it.id }) { fav ->
-                WatchlistRow(
-                    fav = fav,
-                    price = watchPrices[fav.itemId],
-                    grade = watchGrades[fav.itemId] ?: 0,
-                    onClick = { onOpenItem(fav.itemId) },
-                    onRemove = { scope.launch { favoritesRepo.remove(fav.id) } },
-                    onSetTarget = { targetFor = fav },
-                )
-            }
-            if (unavailable) {
-                item {
-                    Text(
-                        "Marketplace temporarily unavailable — prices may be missing",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-
-        item { MarketSectionHeader("SEARCH") }
+        item { Spacer(Modifier.height(8.dp)) }
         item {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 placeholder = { Text("Search the Central Market…") },
@@ -279,24 +277,92 @@ private fun MarketMain(
                 ),
             )
         }
-        if (query.isNotBlank() && results.isEmpty()) {
-            item {
-                Text(
-                    "No items found.",
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        items(results, key = { it.id }) { item ->
-            SearchResultRow(item = item, onClick = { onOpenItem(item.id) })
-        }
 
-        // Category browser is only useful when not actively searching.
-        if (query.isBlank() && categories.isNotEmpty()) {
-            item { MarketSectionHeader("BROWSE BY CATEGORY") }
-            item { CategoryGrid(categories, onPickCategory) }
+        if (query.isNotBlank()) {
+            if (results.isEmpty()) {
+                item {
+                    Text(
+                        "No items found.",
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            items(results, key = { it.id }) { item ->
+                Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    SearchResultRow(item = item, onClick = { onOpenItem(item.id) })
+                }
+            }
+        } else {
+            if (watchlist.isEmpty()) {
+                item {
+                    Column(
+                        Modifier.fillMaxWidth().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text("Your watchlist is empty", style = MaterialTheme.typography.titleSmall, color = BdoColors.onBg)
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Search above and tap ⭐ on an item to track its price here.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = BdoColors.onFaint,
+                        )
+                    }
+                }
+            } else {
+                if (spotlight != null) {
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        AnimatedContent(
+                            targetState = spotlight,
+                            transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) },
+                            label = "spotlight",
+                        ) { sp ->
+                            Spotlight(sp) { onOpenItem(sp.fav.itemId) }
+                        }
+                    }
+                }
+                item {
+                    SectionLabel(
+                        "Watchlist",
+                        Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 6.dp),
+                        trailing = { WatchSortChips(sort) { sort = it } },
+                    )
+                }
+                item {
+                    BdoCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        terminalItems.forEachIndexed { i, ti ->
+                            SparkRow(
+                                item = ti,
+                                onOpen = { onOpenItem(ti.fav.itemId) },
+                                onLong = { targetFor = ti.fav },
+                                isLast = i == terminalItems.lastIndex,
+                            )
+                        }
+                    }
+                }
+                if (unavailable) {
+                    item {
+                        Text(
+                            "Marketplace temporarily unavailable — prices may be missing",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            // Category browser always shows when not searching (whether or not the
+            // watchlist has items) — a full 2-column grid, not a cramped rail.
+            if (categories.isNotEmpty()) {
+                item { SectionLabel("Browse by category", Modifier.padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 8.dp)) }
+                item {
+                    Box(Modifier.padding(horizontal = 16.dp)) {
+                        CategoryGrid(categories, onPickCategory)
+                    }
+                }
+            }
         }
     }
 

@@ -3,14 +3,6 @@ package com.gpowell.bdoboss.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,8 +11,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,12 +20,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,22 +34,30 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.gpowell.bdoboss.domain.Spawn
-import com.gpowell.bdoboss.ui.theme.BdoGold
+import com.gpowell.bdoboss.ui.theme.BdoCard
+import com.gpowell.bdoboss.ui.theme.BdoColors
+import com.gpowell.bdoboss.ui.theme.BdoType
+import com.gpowell.bdoboss.ui.theme.Diamond
 import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+// Retained for other screens that still reference per-boss accent colors.
 val bossColors = mapOf(
     "Kzarka" to Color(0xFF8E44AD), "Kutum" to Color(0xFFC0392B),
     "Nouver" to Color(0xFFE67E22), "Karanda" to Color(0xFF16A085),
@@ -68,8 +67,6 @@ val bossColors = mapOf(
     "Quint" to Color(0xFF95A5A6), "Muraka" to Color(0xFF7F8C8D),
     "Golden Pig King" to Color(0xFFF1C40F),
 )
-
-private val UrgentRed = Color(0xFFFF6B5A)
 
 /** Single-line text whose changes roll vertically (odometer style). */
 @Composable
@@ -89,7 +86,7 @@ internal fun RollingText(
         label = "roll",
         modifier = modifier,
     ) { t ->
-        Text(t, color = color, style = style, fontWeight = fontWeight)
+        Text(t, color = color, style = style, fontWeight = fontWeight, maxLines = 1)
     }
 }
 
@@ -108,25 +105,24 @@ fun TimersScreen(
     }
     val fmt = remember { DateTimeFormatter.ofPattern("EEE h:mm a") }
 
-    var appeared by remember { mutableStateOf(false) }
+    // Saveable so the staggered entrance plays once and does NOT replay on tab switches.
+    var appeared by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { appeared = true }
 
     val upcoming = spawns.filter { it.at > now }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(vertical = 12.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp),
+        contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
     ) {
-        headerContent?.let { header -> item { header() } }
+        headerContent?.let { header -> item { Box(Modifier.padding(bottom = 4.dp)) { header() } } }
         itemsIndexed(upcoming, key = { _, spawn -> spawn.at.epochSecond }) { index, spawn ->
-            val delayMs = (index * 40).coerceAtMost(400)
+            val delayMs = (index * 55).coerceAtMost(440)
             AnimatedVisibility(
                 visible = appeared,
-                enter = fadeIn(tween(300, delayMillis = delayMs)) +
-                    slideInVertically(tween(300, delayMillis = delayMs)) { it / 6 },
+                enter = fadeIn(tween(420, delayMillis = delayMs)) +
+                    slideInVertically(tween(420, delayMillis = delayMs)) { it / 8 },
                 modifier = Modifier.animateItem(),
             ) {
                 SpawnCard(spawn, now, fmt, isNext = index == 0, onSpawnClick = onSpawnClick)
@@ -135,7 +131,6 @@ fun TimersScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SpawnCard(
     spawn: Spawn,
@@ -145,86 +140,102 @@ private fun SpawnCard(
     onSpawnClick: (Spawn) -> Unit,
 ) {
     val remaining = Duration.between(now, spawn.at)
+    val imminent = !remaining.isNegative && remaining < Duration.ofMinutes(10)
     val local = spawn.at.atZone(ZoneId.systemDefault())
-    val shape = RoundedCornerShape(14.dp)
+    val co = spawn.bosses.size > 1
 
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.97f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "pressScale",
-    )
+    val countdownColor = when {
+        imminent -> BdoColors.live2
+        isNext -> BdoColors.goldHi
+        else -> BdoColors.onBg
+    }
 
-    val countdownColor by animateColorAsState(
-        targetValue = if (remaining < Duration.ofMinutes(15)) UrgentRed else BdoGold,
-        animationSpec = tween(600),
-        label = "urgency",
-    )
-
-    Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }) {
-        val cardModifier = if (isNext) {
-            val pulse by rememberInfiniteTransition(label = "heroPulse").animateFloat(
-                initialValue = 0.35f,
-                targetValue = 0.9f,
-                animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
-                label = "pulse",
-            )
-            Modifier
-                .fillMaxWidth()
-                .border(1.5.dp, BdoGold.copy(alpha = pulse), shape)
-        } else {
-            Modifier.fillMaxWidth()
-        }
-        Card(
-            onClick = { onSpawnClick(spawn) },
-            shape = shape,
-            interactionSource = interaction,
-            modifier = cardModifier,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        spawn.bosses.forEach { boss -> BossIcon(boss, size = 44.dp) }
+    BdoCard(
+        facet = isNext,
+        glow = isNext || imminent,
+        onClick = { onSpawnClick(spawn) },
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 15.dp, vertical = 14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // ── stacked portraits (co-spawn) ──
+            Box(Modifier.width(if (co) 64.dp else 52.dp).height(52.dp)) {
+                spawn.bosses.take(2).forEachIndexed { i, b ->
+                    Box(Modifier.offset(x = (i * 18).dp)) {
+                        BossTile(b, size = if (co) 44.dp else 52.dp, glow = isNext)
                     }
-                    Spacer(Modifier.height(6.dp))
+                }
+                if (spawn.bosses.size > 2) {
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .clip(RoundedCornerShape(50))
+                            .background(BdoColors.surfaceHi)
+                            .border(1.dp, BdoColors.goldLine, RoundedCornerShape(50))
+                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                    ) {
+                        Text(
+                            "+${spawn.bosses.size - 2}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = BdoColors.goldHi,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.width(14.dp))
+
+            // ── name + time ──
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isNext) {
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(Brush.verticalGradient(listOf(BdoColors.goldHi, BdoColors.gold)))
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                        ) {
+                            Text("NEXT", style = BdoType.overline.copy(fontSize = 9.sp), color = BdoColors.onGold)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                    }
                     Text(
-                        spawn.bosses.joinToString("  +  "),
-                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        fmt.format(local), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        spawn.bosses.joinToString(" + "),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = BdoColors.onBg,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        fmt.format(local),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = BdoColors.onFaint,
+                    )
+                    if (co) {
+                        Spacer(Modifier.width(6.dp))
+                        Diamond(size = 4.dp, color = BdoColors.onFaint)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Co-spawn", style = MaterialTheme.typography.bodySmall, color = BdoColors.onFaint)
+                    }
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+
+            // ── countdown ──
+            Column(horizontalAlignment = Alignment.End) {
                 RollingText(
                     text = formatCountdown(remaining),
                     color = countdownColor,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
+                    style = BdoType.num.copy(fontSize = if (imminent) 22.sp else 18.sp),
+                    fontWeight = FontWeight.SemiBold,
                 )
-            }
-        }
-        if (isNext) {
-            // Plain Box, not Surface — Surface blocks touch input, creating a dead
-            // zone over the card's tap target.
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 8.dp, end = 8.dp)
-                    .background(BdoGold, RoundedCornerShape(6.dp)),
-            ) {
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    "NEXT",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    if (imminent) "SPAWNING" else "UNTIL SPAWN",
+                    style = BdoType.overline.copy(fontSize = 8.5.sp),
+                    color = BdoColors.onFaint,
                 )
             }
         }
@@ -232,7 +243,8 @@ private fun SpawnCard(
 }
 
 private fun formatCountdown(d: Duration): String {
-    val total = d.seconds.coerceAtLeast(0)
+    val total = d.seconds
+    if (total <= 0) return "LIVE"
     val h = total / 3600
     val m = (total % 3600) / 60
     val s = total % 60

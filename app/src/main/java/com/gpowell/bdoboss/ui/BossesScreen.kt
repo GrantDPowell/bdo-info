@@ -10,60 +10,38 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import com.gpowell.bdoboss.data.Schedule
+import androidx.compose.ui.unit.dp
 import com.gpowell.bdoboss.domain.Spawn
-import com.gpowell.bdoboss.ui.theme.BdoGold
+import com.gpowell.bdoboss.ui.theme.BdoSubTabs
 
-private val SUB_TABS = listOf("Timers", "Schedule", "Alerts")
+private val SUB_TABS = listOf("Dial", "Timers", "Agenda", "Alerts")
 
 /**
- * "Bosses" top-level tab: hosts the three v1 screens (Timers / Schedule / Alerts)
- * behind a secondary tab row. The child screens are unchanged.
+ * "Bosses" top-level tab: Dial / Timers / Agenda / Alerts behind a secondary tab row.
+ * All spawn data is live (from [spawns]); there is no static weekly schedule.
  */
 @Composable
 fun BossesScreen(
     spawns: List<Spawn>,
-    schedule: Schedule?,
     onSpawnClick: (Spawn) -> Unit,
     headerContent: (@Composable () -> Unit)? = null,
 ) {
     var subTab by rememberSaveable { mutableIntStateOf(0) }
 
     Column(Modifier.fillMaxSize()) {
-        TabRow(
-            selectedTabIndex = subTab,
-            containerColor = Color.Transparent,
-            contentColor = BdoGold,
-            indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    Modifier.tabIndicatorOffset(tabPositions[subTab]),
-                    color = BdoGold,
-                )
-            },
-        ) {
-            SUB_TABS.forEachIndexed { i, title ->
-                Tab(
-                    selected = subTab == i,
-                    onClick = { subTab = i },
-                    text = { Text(title) },
-                    selectedContentColor = BdoGold,
-                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        BdoSubTabs(
+            tabs = SUB_TABS,
+            selected = subTab,
+            onSelect = { subTab = it },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+        )
         AnimatedContent(
             targetState = subTab,
             modifier = Modifier.fillMaxSize(),
@@ -76,13 +54,18 @@ fun BossesScreen(
         ) { t ->
             Box(Modifier.fillMaxSize()) {
                 when (t) {
-                    0 -> TimersScreen(
+                    0 -> SpawnDial(
+                        spawns = spawns,
+                        onSpawnClick = onSpawnClick,
+                        headerContent = headerContent,
+                    )
+                    1 -> TimersScreen(
                         spawns,
                         onSpawnClick = onSpawnClick,
                         headerContent = headerContent,
                     )
-                    1 -> schedule?.let { ScheduleScreen(it, onSpawnClick = onSpawnClick) }
-                    2 -> AlertsScreen()
+                    2 -> ScheduleScreen(spawns, onSpawnClick = onSpawnClick)
+                    3 -> AlertsScreen()
                 }
             }
         }

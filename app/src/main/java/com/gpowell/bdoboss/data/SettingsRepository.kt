@@ -80,6 +80,18 @@ class SettingsRepository(private val context: Context) {
         val QUIET_END = intPreferencesKey("quiet_end_min")
 
         val API_KEY = stringPreferencesKey("bdoalerts_api_key")
+
+        // Orrery animated effects (gold dust, radar sweep, ticking prices, …). Default on.
+        val EFFECTS = booleanPreferencesKey("effects_enabled")
+    }
+
+    // -------------------------------------------------------------------------
+    // Animated effects toggle (On / Calm).
+    // -------------------------------------------------------------------------
+    val effectsEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[Keys.EFFECTS] ?: true }
+
+    suspend fun setEffectsEnabled(value: Boolean) {
+        context.dataStore.edit { it[Keys.EFFECTS] = value }
     }
 
     // -------------------------------------------------------------------------
