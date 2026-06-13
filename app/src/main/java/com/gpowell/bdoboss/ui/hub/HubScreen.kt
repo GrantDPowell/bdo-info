@@ -177,15 +177,8 @@ private fun HubLauncher(
             }
         }
 
-        // Categorized web tools (all share the in-app browser session)
-        WEB_TOOLS.forEach { cat ->
-            item { SectionLabel(cat.title, Modifier.padding(top = 6.dp)) }
-            items(cat.tools, key = { it.url }) { tool ->
-                WebToolRow(tool) { onOpen(tool.url) }
-            }
-        }
-
-        item { SectionLabel("Favorites", Modifier.padding(top = 8.dp)) }
+        // Favorites
+        item { SectionLabel("Favorites", Modifier.padding(top = 6.dp)) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FavFilter.entries.forEach { f ->
@@ -195,7 +188,7 @@ private fun HubLauncher(
         }
         if (filtered.isEmpty()) {
             item {
-                Column(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Diamond(size = 9.dp, glow = true)
                     Spacer(Modifier.height(8.dp))
                     Text("Nothing saved yet", style = MaterialTheme.typography.titleSmall, color = BdoColors.onBg)
@@ -208,6 +201,14 @@ private fun HubLauncher(
         } else {
             items(filtered, key = { it.id }) { fav ->
                 FavoriteRow(fav = fav, onOpen = onOpen, onOpenItem = onOpenItem, onDelete = { scope.launch { repo.remove(fav.id) } })
+            }
+        }
+
+        // All the web links, categorized (all share the in-app browser session)
+        WEB_TOOLS.forEach { cat ->
+            item { SectionLabel(cat.title, Modifier.padding(top = 6.dp)) }
+            items(cat.tools, key = { it.url }) { tool ->
+                WebToolRow(tool) { onOpen(tool.url) }
             }
         }
     }
