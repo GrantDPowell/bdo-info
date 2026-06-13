@@ -1,7 +1,7 @@
 {
   "region": "NA",
   "timezone": "America/Los_Angeles",
-  "version": 1,
+  "version": 2,
   "bosses": [
     "Kzarka", "Kutum", "Nouver", "Karanda", "Garmoth", "Offin", "Vell",
     "Uturi", "Sangoon", "Bulgasal", "Quint", "Muraka", "Golden Pig King"
@@ -59,7 +59,7 @@
     { "day": "FRIDAY",    "time": "17:00", "bosses": ["Kzarka", "Bulgasal"] },
     { "day": "FRIDAY",    "time": "20:15", "bosses": ["Kzarka", "Kutum"] },
     { "day": "FRIDAY",    "time": "21:15", "bosses": ["Garmoth"] },
-    { "day": "FRIDAY",    "time": "22:15", "bosses": ["Karanda", "Golden Pig King"] },
+    { "day": "FRIDAY",    "time": "22:15", "bosses": ["Karanda", "Sangoon"] },
 
     { "day": "SATURDAY",  "time": "00:00", "bosses": ["Offin", "Uturi"] },
     { "day": "SATURDAY",  "time": "03:00", "bosses": ["Nouver"] },
