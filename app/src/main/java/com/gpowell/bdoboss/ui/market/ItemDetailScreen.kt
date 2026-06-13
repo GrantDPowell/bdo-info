@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -245,11 +246,17 @@ fun ItemDetailScreen(
         }
 
         // Enhancement-level selector when the item enhances (sids beyond base).
+        // Gear runs +1..PEN (20+ levels) — must scroll horizontally so none clip.
         val sids = priceRows?.map { it.enhancement }?.distinct()?.sorted().orEmpty()
         if (sids.size > 1) {
             val maxSid = sids.max()
             Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 sids.forEach { sid ->
                     FilterChip(
                         selected = selectedSid == sid,

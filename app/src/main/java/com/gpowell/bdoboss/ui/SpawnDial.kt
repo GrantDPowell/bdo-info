@@ -159,7 +159,7 @@ private fun DialCanvas(
         0.6f, 1f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Reverse), label = "halo",
     )
 
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
         val wPx = with(density) { maxWidth.toPx() }
         val scale = wPx / 360f
         val hDp = with(density) { (372f * scale).toDp() }
@@ -253,10 +253,6 @@ private fun DialCanvas(
                     style = Stroke(width = 3f * scale, cap = StrokeCap.Round),
                 )
 
-                // hand to next
-                val hand = p(Rv - 4f, next.deg)
-                drawLine(BdoColors.gold.copy(alpha = 0.5f), Offset(cx, cy), hand, strokeWidth = 1.4f * scale)
-
                 // thread of fate
                 if (fx && nodes.size > 1) {
                     val sorted = nodes.sortedBy { it.ms }
@@ -288,9 +284,28 @@ private fun DialCanvas(
                 }
                 drawCircle(tintNext.copy(alpha = 0.18f * halo), radius = 30f * scale, center = np)
 
-                // NOW marker dot
+                // NOW marker: a glowing gold arrowhead at top-center pointing into the dial,
+                // marking live "now" (spawns sweep clockwise away from it).
                 val nowPt = p(Rv, 0f)
-                drawCircle(BdoColors.live2, radius = 3.5f * scale, center = nowPt)
+                val aw = 7f * scale   // half-width
+                val ah = 11f * scale  // height (points down, into the ring)
+                val tipY = nowPt.y + ah
+                val arrow = Path().apply {
+                    moveTo(nowPt.x - aw, nowPt.y - ah * 0.35f)
+                    lineTo(nowPt.x + aw, nowPt.y - ah * 0.35f)
+                    lineTo(nowPt.x, tipY)
+                    close()
+                }
+                drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f), radius = 9f * scale, center = nowPt)
+                drawPath(arrow, BdoColors.goldHi)
+                // small clockwise hint tick to the right of the arrow
+                drawArc(
+                    color = BdoColors.goldHi.copy(alpha = 0.8f),
+                    startAngle = -78f, sweepAngle = 26f, useCenter = false,
+                    topLeft = Offset(cx - (Rv + 18f) * scale, cy - (Rv + 18f) * scale),
+                    size = androidx.compose.ui.geometry.Size((Rv + 18f) * scale * 2, (Rv + 18f) * scale * 2),
+                    style = Stroke(width = 1.5f * scale, cap = StrokeCap.Round),
+                )
             }
 
             // ── boss icons (tappable portraits at their time-angle) ──

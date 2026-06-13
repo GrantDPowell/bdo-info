@@ -235,8 +235,33 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Text(
+                        "BDO Info is an unofficial fan-made companion for Black Desert " +
+                            "Online (NA). Not affiliated with or endorsed by Pearl Abyss.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     LinkRow("Privacy Policy", "https://grantdpowell.github.io/bdo-info/privacy.html")
                     LinkRow("GitHub", "https://github.com/GrantDPowell/bdo-info")
+                }
+            }
+
+            SettingsSectionHeader("CREDITS")
+            Card {
+                Column(Modifier.fillMaxWidth().padding(12.dp), Arrangement.spacedBy(8.dp)) {
+                    CreditRow("Boss timers & resets", "bdoalerts.net — by LoadingMagic")
+                    CreditRow("Market prices & history", "arsha.io · BlackDesertMarket.com")
+                    CreditRow("Item icons & database", "BDO Codex (bdocodex.com)")
+                    CreditRow("Boss portraits", "mmotimer.com")
+                    CreditRow("Category names", "Veliainn market resources")
+                    CreditRow("Fonts", "Geist & Geist Mono, Marcellus (SIL OFL)")
+                    CreditRow("Game data & art", "© Pearl Abyss Corp.")
+                    Text(
+                        "Built by Grant Powell (OkimaSha). Live data sources and their " +
+                            "current status are listed below.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 
@@ -286,6 +311,14 @@ private fun SettingsSectionHeader(title: String) {
         letterSpacing = 2.sp,
         fontWeight = FontWeight.Bold,
     )
+}
+
+@Composable
+private fun CreditRow(what: String, who: String) {
+    Column {
+        Text(what, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        Text(who, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 @Composable

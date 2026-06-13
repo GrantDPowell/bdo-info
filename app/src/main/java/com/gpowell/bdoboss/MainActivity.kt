@@ -219,40 +219,6 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         containerColor = Color.Transparent,
                         contentColor = MaterialTheme.colorScheme.onBackground,
-                        topBar = {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .statusBarsPadding()
-                                    .height(56.dp)
-                                    .padding(start = 18.dp, end = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Diamond(size = 10.dp, glow = true)
-                                Spacer(Modifier.size(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        "BDO INFO",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = BdoColors.onBg,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 3.sp,
-                                    )
-                                    Text(
-                                        "World boss timers · NA",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = BdoColors.onFaint,
-                                    )
-                                }
-                                IconButton(onClick = { showSettings = true }) {
-                                    Icon(
-                                        Icons.Filled.Settings,
-                                        contentDescription = "Settings",
-                                        tint = BdoColors.onMuted,
-                                    )
-                                }
-                            }
-                        },
                         bottomBar = {
                             BdoBottomBar(
                                 tabs = TOP_TABS,
@@ -291,6 +257,7 @@ class MainActivity : ComponentActivity() {
                                             marketDetailItemId = itemId
                                             tab = 1
                                         },
+                                        onOpenSettings = { showSettings = true },
                                     )
                                 }
                             }

@@ -17,7 +17,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -71,14 +73,14 @@ private enum class FavFilter(val label: String, val type: FavoriteType?) {
 }
 
 @Composable
-fun HubScreen(onOpenItem: (Int) -> Unit = {}) {
+fun HubScreen(onOpenItem: (Int) -> Unit = {}, onOpenSettings: () -> Unit = {}) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val repo = remember { FavoritesRepository(ctx.applicationContext) }
     var currentUrl by rememberSaveable { mutableStateOf<String?>(null) }
 
     val url = currentUrl
     if (url == null) {
-        HubLauncher(repo = repo, onOpen = { currentUrl = it }, onOpenItem = onOpenItem)
+        HubLauncher(repo = repo, onOpen = { currentUrl = it }, onOpenItem = onOpenItem, onOpenSettings = onOpenSettings)
     } else {
         BrowserScreen(initialUrl = url, repo = repo, onExit = { currentUrl = null })
     }
@@ -89,6 +91,7 @@ private fun HubLauncher(
     repo: FavoritesRepository,
     onOpen: (String) -> Unit,
     onOpenItem: (Int) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val favorites by repo.favorites.collectAsState(initial = emptyList())
     var filter by rememberSaveable { mutableStateOf(FavFilter.ALL) }
@@ -103,6 +106,48 @@ private fun HubLauncher(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        // Brand + settings entry (the top app bar was removed for screen space).
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Diamond(size = 10.dp, glow = true)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "BDO INFO",
+                        style = BdoType.display.copy(fontSize = 20.sp),
+                        color = BdoColors.onBg,
+                    )
+                    Text(
+                        "Unofficial companion · NA",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = BdoColors.onFaint,
+                    )
+                }
+                IconButton(onClick = onOpenSettings) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = BdoColors.goldHi)
+                }
+            }
+        }
+        item {
+            BdoCard(Modifier.fillMaxWidth(), onClick = onOpenSettings, contentPadding = PaddingValues(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Settings, contentDescription = null, tint = BdoColors.goldHi, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Settings & credits", fontWeight = FontWeight.SemiBold, color = BdoColors.onBg)
+                        Text(
+                            "API key · effects · data sources · about",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = BdoColors.onFaint,
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null, tint = BdoColors.onFaint,
+                    )
+                }
+            }
+        }
         item { SectionLabel("Web hub") }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
