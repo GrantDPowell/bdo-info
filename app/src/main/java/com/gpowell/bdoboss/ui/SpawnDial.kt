@@ -69,7 +69,7 @@ import kotlin.math.sin
 // dial geometry in a 360 x 372 design space (scaled to width at runtime)
 private const val CXv = 180f
 private const val CYv = 184f
-private const val Rv = 130f
+private const val Rv = 146f   // ~12% larger ring (fills more of the width)
 private const val WINDOW_MS = 24L * 3600L * 1000L
 
 private data class DialNode(val spawn: Spawn, val ms: Long, val deg: Float, val displayDeg: Float = deg)
@@ -177,19 +177,32 @@ private fun DialCanvas(
         fun p(r: Float, deg: Float) = polar(CXv * scale, CYv * scale, r * scale, deg)
 
         Box(Modifier.fillMaxWidth().height(hDp)) {
-            if (fx) GoldDust(Modifier.fillMaxSize())
+            if (fx) GoldDust(Modifier.fillMaxSize(), count = 60)
 
             Canvas(Modifier.fillMaxSize()) {
                 val cx = CXv * scale; val cy = CYv * scale; val R = Rv * scale
+                val glowC = Offset(cx, cy - R * 0.05f)
 
-                // core glow
+                // amplified core glow — a wide soft bloom + a brighter inner core
                 drawCircle(
                     brush = Brush.radialGradient(
-                        listOf(BdoColors.goldGlow.copy(alpha = 0.30f), Color.Transparent),
-                        center = Offset(cx, cy - R * 0.05f), radius = R,
+                        listOf(BdoColors.goldGlow.copy(alpha = 0.22f), Color.Transparent),
+                        center = glowC, radius = R * 1.35f,
                     ),
-                    radius = R, center = Offset(cx, cy - R * 0.05f),
+                    radius = R * 1.35f, center = glowC,
                 )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(BdoColors.goldGlow.copy(alpha = 0.5f), Color.Transparent),
+                        center = glowC, radius = R * 0.78f,
+                    ),
+                    radius = R * 0.78f, center = glowC,
+                )
+                // faint concentric depth rings
+                drawCircle(BdoColors.line, radius = R * 0.55f, center = Offset(cx, cy), style = Stroke(width = 1f * scale))
+                drawCircle(BdoColors.line, radius = R * 0.78f, center = Offset(cx, cy), style = Stroke(width = 1f * scale))
+                // outer rim glow
+                drawCircle(BdoColors.goldGlow.copy(alpha = 0.18f), radius = R + 6f * scale, center = Offset(cx, cy), style = Stroke(width = 6f * scale))
 
                 // day / night band (thin ring just inside the rim), 48 half-hour segments
                 val bandR = (Rv - 9f) * scale
@@ -253,12 +266,18 @@ private fun DialCanvas(
                     }
                 }
 
-                // progress wedge: top(now) -> next
+                // progress wedge: top(now) -> next, with a soft glow underlay
+                val wedgeSweep = next.displayDeg.coerceAtLeast(2f)
+                drawArc(
+                    color = BdoColors.goldGlow.copy(alpha = 0.55f),
+                    startAngle = -90f, sweepAngle = wedgeSweep, useCenter = false,
+                    topLeft = Offset(cx - R, cy - R),
+                    size = androidx.compose.ui.geometry.Size(R * 2, R * 2),
+                    style = Stroke(width = 7f * scale, cap = StrokeCap.Round),
+                )
                 drawArc(
                     color = BdoColors.goldHi,
-                    startAngle = -90f,
-                    sweepAngle = next.displayDeg.coerceAtLeast(2f),
-                    useCenter = false,
+                    startAngle = -90f, sweepAngle = wedgeSweep, useCenter = false,
                     topLeft = Offset(cx - R, cy - R),
                     size = androidx.compose.ui.geometry.Size(R * 2, R * 2),
                     style = Stroke(width = 3f * scale, cap = StrokeCap.Round),

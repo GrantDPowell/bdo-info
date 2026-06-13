@@ -49,10 +49,10 @@ fun GoldDust(modifier: Modifier = Modifier, count: Int = 34) {
         List(count) {
             Mote(
                 x = Random.nextFloat(), y = Random.nextFloat(),
-                r = Random.nextFloat() * 1.6f + 0.5f,
-                vy = -(Random.nextFloat() * 0.0006f + 0.00015f),
-                vx = (Random.nextFloat() - 0.5f) * 0.0004f,
-                a = Random.nextFloat() * 0.5f + 0.12f,
+                r = Random.nextFloat() * 2.4f + 0.8f,
+                vy = -(Random.nextFloat() * 0.0007f + 0.0002f),
+                vx = (Random.nextFloat() - 0.5f) * 0.0005f,
+                a = Random.nextFloat() * 0.6f + 0.2f,
                 tw = Random.nextFloat() * (2f * PI.toFloat()),
                 tws = Random.nextFloat() * 0.05f + 0.015f,
             )
@@ -77,8 +77,9 @@ fun GoldDust(modifier: Modifier = Modifier, count: Int = 34) {
         for (m in motes) {
             val a = (m.a * (0.55f + 0.45f * sin(m.tw))).coerceIn(0f, 1f)
             val c = Offset(m.x * size.width, m.y * size.height)
-            drawCircle(gold.copy(alpha = a * 0.4f), radius = m.r * 3f, center = c) // glow
-            drawCircle(gold.copy(alpha = a), radius = m.r, center = c)
+            drawCircle(gold.copy(alpha = a * 0.22f), radius = m.r * 5f, center = c)  // soft bloom
+            drawCircle(gold.copy(alpha = a * 0.55f), radius = m.r * 2.4f, center = c) // glow
+            drawCircle(gold.copy(alpha = a), radius = m.r, center = c)                // core
         }
     }
 }
