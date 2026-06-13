@@ -72,7 +72,22 @@ private const val CYv = 184f
 private const val Rv = 130f
 private const val WINDOW_MS = 24L * 3600L * 1000L
 
-private data class DialNode(val spawn: Spawn, val ms: Long, val deg: Float)
+private data class DialNode(val spawn: Spawn, val ms: Long, val deg: Float, val displayDeg: Float = deg)
+
+/**
+ * Spread bead angles so spawns close in time don't stack. Keeps the true time order but
+ * enforces a minimum visual gap (the dial is only ~14°/hour, so bosses an hour or two
+ * apart would otherwise overlap).
+ */
+private fun spreadNodes(nodes: List<DialNode>, minGap: Float = 17f): List<DialNode> {
+    val sorted = nodes.sortedBy { it.deg }
+    var last = -1000f
+    return sorted.map { n ->
+        val d = if (n.deg - last < minGap) last + minGap else n.deg
+        last = d
+        n.copy(displayDeg = d.coerceAtMost(345f))
+    }
+}
 
 private fun polar(cx: Float, cy: Float, r: Float, deg: Float): Offset {
     val a = (deg - 90f) * (Math.PI.toFloat() / 180f)
@@ -95,29 +110,31 @@ fun SpawnDial(
     LaunchedEffect(Unit) { while (true) { now = Instant.now(); delay(1000) } }
 
     val nodes = remember(spawns, now) {
-        spawns.map { s ->
+        val raw = spawns.map { s ->
             val ms = Duration.between(now, s.at).toMillis()
             val frac = (ms.toFloat() / WINDOW_MS).coerceIn(0f, 0.92f)
             DialNode(s, ms, frac * 330f)
         }.filter { it.ms >= -60_000 }
+        spreadNodes(raw)
     }
     val next = nodes.minByOrNull { if (it.ms < -60_000) Long.MAX_VALUE else it.ms } ?: nodes.firstOrNull()
 
+    // Fixed layout (no scroll): ribbon at top, dial centered, Up Next pinned to the bottom
+    // so the dial gets the most space.
     Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(top = 2.dp, bottom = 16.dp),
+        Modifier.fillMaxSize().padding(top = 2.dp, bottom = 12.dp),
     ) {
         headerContent?.invoke()
         if (next == null) {
-            Box(Modifier.fillMaxWidth().height(360.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 androidx.compose.material3.Text("No upcoming spawns", color = BdoColors.onFaint)
             }
             return@Column
         }
 
-        DialCanvas(nodes = nodes, next = next, now = now, fx = fx, onSpawnClick = onSpawnClick)
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            DialCanvas(nodes = nodes, next = next, now = now, fx = fx, onSpawnClick = onSpawnClick)
+        }
         UpNextStrip(nodes = nodes.filter { it != next }.take(6), onOpen = onSpawnClick)
     }
 }
@@ -149,14 +166,8 @@ private fun DialCanvas(
     val flourish by infinite.animateFloat(
         0f, 360f, infiniteRepeatable(tween(140_000, easing = LinearEasing)), label = "flourish",
     )
-    val shock by infinite.animateFloat(
-        0f, 1f, infiniteRepeatable(tween(2200, easing = LinearEasing)), label = "shock",
-    )
     val threadPhase by infinite.animateFloat(
         0f, 18f, infiniteRepeatable(tween(4000, easing = LinearEasing)), label = "thread",
-    )
-    val halo by infinite.animateFloat(
-        0.6f, 1f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Reverse), label = "halo",
     )
 
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
@@ -246,7 +257,7 @@ private fun DialCanvas(
                 drawArc(
                     color = BdoColors.goldHi,
                     startAngle = -90f,
-                    sweepAngle = next.deg.coerceAtLeast(2f),
+                    sweepAngle = next.displayDeg.coerceAtLeast(2f),
                     useCenter = false,
                     topLeft = Offset(cx - R, cy - R),
                     size = androidx.compose.ui.geometry.Size(R * 2, R * 2),
@@ -258,7 +269,7 @@ private fun DialCanvas(
                     val sorted = nodes.sortedBy { it.ms }
                     val thread = Path()
                     sorted.forEachIndexed { i, n ->
-                        val pt = p(Rv, n.deg)
+                        val pt = p(Rv, n.displayDeg)
                         if (i == 0) thread.moveTo(pt.x, pt.y) else thread.lineTo(pt.x, pt.y)
                     }
                     drawPath(
@@ -270,42 +281,20 @@ private fun DialCanvas(
                     )
                 }
 
-                // shockwave halo behind the NEXT boss
-                val np = p(Rv, next.deg)
-                val tintNext = bossDialTint(next.spawn.bosses.first())
-                if (fx) {
-                    listOf(shock, (shock + 0.5f) % 1f).forEach { sp ->
-                        drawCircle(
-                            tintNext.copy(alpha = 0.6f * (1f - sp)),
-                            radius = 26f * scale * (1f + 1.4f * sp), center = np,
-                            style = Stroke(width = 1.6f * scale),
-                        )
-                    }
-                }
-                drawCircle(tintNext.copy(alpha = 0.18f * halo), radius = 30f * scale, center = np)
-
-                // NOW marker: a glowing gold arrowhead at top-center pointing into the dial,
-                // marking live "now" (spawns sweep clockwise away from it).
-                val nowPt = p(Rv, 0f)
-                val aw = 7f * scale   // half-width
-                val ah = 11f * scale  // height (points down, into the ring)
-                val tipY = nowPt.y + ah
+                // NOW marker: a glowing gold arrowhead sitting ABOVE the ring, pointing down
+                // at the top of the ring (= live "now"; spawns sweep clockwise away from it).
+                val ringTopY = cy - R
+                val aw = 8f * scale
+                val baseY = ringTopY - 17f * scale
+                val tipY = ringTopY - 3f * scale
                 val arrow = Path().apply {
-                    moveTo(nowPt.x - aw, nowPt.y - ah * 0.35f)
-                    lineTo(nowPt.x + aw, nowPt.y - ah * 0.35f)
-                    lineTo(nowPt.x, tipY)
+                    moveTo(cx - aw, baseY)
+                    lineTo(cx + aw, baseY)
+                    lineTo(cx, tipY)
                     close()
                 }
-                drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f), radius = 9f * scale, center = nowPt)
+                drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f), radius = 9f * scale, center = Offset(cx, baseY + 4f * scale))
                 drawPath(arrow, BdoColors.goldHi)
-                // small clockwise hint tick to the right of the arrow
-                drawArc(
-                    color = BdoColors.goldHi.copy(alpha = 0.8f),
-                    startAngle = -78f, sweepAngle = 26f, useCenter = false,
-                    topLeft = Offset(cx - (Rv + 18f) * scale, cy - (Rv + 18f) * scale),
-                    size = androidx.compose.ui.geometry.Size((Rv + 18f) * scale * 2, (Rv + 18f) * scale * 2),
-                    style = Stroke(width = 1.5f * scale, cap = StrokeCap.Round),
-                )
             }
 
             // ── boss icons (tappable portraits at their time-angle) ──
@@ -313,7 +302,7 @@ private fun DialCanvas(
                 val isNext = n == next
                 val tileDp = if (isNext) 50.dp else 42.dp
                 val tilePx = with(density) { tileDp.toPx() }
-                val pos = p(Rv, n.deg)
+                val pos = p(Rv, n.displayDeg)
                 Box(
                     Modifier
                         .offset { IntOffset((pos.x - tilePx / 2f).roundToInt(), (pos.y - tilePx / 2f).roundToInt()) }
@@ -350,7 +339,7 @@ private fun DialCanvas(
                 "NOW",
                 style = BdoType.overline.copy(fontSize = 8.5.sp),
                 color = BdoColors.onFaint,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = with(density) { ((CYv - Rv) * scale).toDp() } - 16.dp),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = with(density) { ((CYv - Rv) * scale).toDp() } - 34.dp),
             )
         }
     }
