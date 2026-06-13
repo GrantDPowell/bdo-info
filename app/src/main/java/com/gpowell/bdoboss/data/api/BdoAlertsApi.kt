@@ -110,12 +110,14 @@ class BdoAlertsApi(
      * GET /api/news — board_type: 1=Notices 2=Updates 3=Events 4=GM Notes 5=Pearl Shop.
      * Cache hint: poll at most once per hour; content changes on patch days.
      */
-    suspend fun news(boardType: Int, limit: Int? = null): ApiResult<JsonElement> {
+    suspend fun news(boardType: Int, limit: Int? = null): ApiResult<List<NewsItem>> {
         val params = buildMap<String, String> {
             put("board_type", boardType.toString())
             if (limit != null) put("limit", limit.toString())
         }
-        return getRaw("/api/news", params)
+        return getRaw("/api/news", params).parse(NewsResponse.serializer()).map { resp ->
+            resp.news.ifEmpty { resp.articles.ifEmpty { resp.data } }
+        }
     }
 
     // =========================================================================
@@ -145,8 +147,9 @@ class BdoAlertsApi(
      * GET /api/maintenance-status?region= — region maintenance status.
      * Cache hint: poll at most every 5 minutes during expected windows.
      */
-    suspend fun maintenanceStatus(region: String): ApiResult<JsonElement> =
+    suspend fun maintenanceStatus(region: String): ApiResult<MaintenanceStatus> =
         getRaw("/api/maintenance-status", mapOf("region" to region))
+            .parse(MaintenanceStatus.serializer())
 
     /**
      * GET /api/maintenance-status/all — maintenance status for all regions.
@@ -170,8 +173,10 @@ class BdoAlertsApi(
      * GET /api/player/search/{region}?query= — search for players by family name prefix.
      * Cache hint: do not cache; user-initiated search.
      */
-    suspend fun playerSearch(region: String, query: String): ApiResult<JsonElement> =
+    suspend fun playerSearch(region: String, query: String): ApiResult<List<PlayerSearchResult>> =
         getRaw("/api/player/search/$region", mapOf("query" to query))
+            .parse(PlayerSearchResponse.serializer())
+            .map { it.results.ifEmpty { it.players.ifEmpty { it.data } } }
 
     /**
      * GET /api/player/{region}/{family_name}?force_refresh={bool}

@@ -52,6 +52,9 @@ import com.gpowell.bdoboss.ui.theme.MiniSparkline
 import com.gpowell.bdoboss.ui.theme.SparkBurst
 import com.gpowell.bdoboss.ui.theme.sparkSeries
 
+/** Shared sparkline length so the spotlight + watchlist rows render the same shape per item. */
+private const val SPARK_POINTS = 40
+
 /** One watchlist entry decorated with its live price + derived trend. */
 internal data class TerminalItem(
     val fav: Favorite,
@@ -133,7 +136,7 @@ private fun TapeRun(items: List<TerminalItem>, onWidth: (Int) -> Unit) {
 @Composable
 internal fun Spotlight(item: TerminalItem, onOpen: () -> Unit) {
     val up = item.spread >= 0
-    val series = remember(item.fav.itemId, up) { sparkSeries(item.fav.itemId, 60, up) }
+    val series = remember(item.fav.itemId, up) { sparkSeries(item.fav.itemId, SPARK_POINTS, up) }
     BdoCard(
         facet = true,
         glow = true,
@@ -202,7 +205,7 @@ internal fun SparkRow(
 ) {
     val fx = LocalEffectsEnabled.current
     val up = item.spread >= 0
-    val series = remember(item.fav.itemId, up) { sparkSeries(item.fav.itemId, 22, up) }
+    val series = remember(item.fav.itemId, up) { sparkSeries(item.fav.itemId, SPARK_POINTS, up) }
     Row(
         Modifier
             .fillMaxWidth()

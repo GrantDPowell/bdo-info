@@ -77,6 +77,8 @@ private fun WebView.applyHubSettings() {
     )
     settings.javaScriptEnabled = true
     settings.domStorageEnabled = true
+    @Suppress("DEPRECATION")
+    settings.databaseEnabled = true
     settings.userAgentString = HUB_USER_AGENT
     // Discord (and many) logins open the OAuth consent in a popup window.
     settings.setSupportMultipleWindows(true)
@@ -131,9 +133,12 @@ fun BrowserScreen(
     var progress by remember { mutableIntStateOf(0) }
     // Non-null while an OAuth login popup is showing as a full-screen overlay.
     var popupView by remember { mutableStateOf<WebView?>(null) }
+    // Holder so the OAuth popup's onCloseWindow can reload the main view (forward ref).
+    val mainHolder = remember { arrayOfNulls<WebView>(1) }
 
     val webView = remember {
         WebView(ctx).apply {
+            mainHolder[0] = this
             applyHubSettings()
             webViewClient = object : AdBlockingWebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
@@ -161,7 +166,13 @@ fun BrowserScreen(
                         webViewClient = AdBlockingWebViewClient()
                         webChromeClient = object : WebChromeClient() {
                             override fun onCloseWindow(window: WebView?) {
+                                // OAuth popups (Discord et al.) run in a separate JS context, so
+                                // the window.opener postMessage handshake can't reach the main
+                                // page. When the popup finishes and closes, flush cookies and
+                                // reload the main view so it picks up the now-set session.
                                 popupView = null
+                                CookieManager.getInstance().flush()
+                                mainHolder[0]?.reload()
                             }
                         }
                     }
@@ -267,7 +278,11 @@ fun BrowserScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = { popupView = null }) {
+                    IconButton(onClick = {
+                        popupView = null
+                        CookieManager.getInstance().flush()
+                        webView.reload()
+                    }) {
                         Icon(
                             Icons.Filled.Close,
                             contentDescription = "Close login window",

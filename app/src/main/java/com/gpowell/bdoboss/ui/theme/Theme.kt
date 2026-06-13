@@ -6,6 +6,10 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -31,35 +35,67 @@ import com.gpowell.bdoboss.R
  * All design tokens live here so screens read from one source of truth. The MaterialTheme
  * wrapper maps these into M3 color/type/shape roles so untouched components inherit the look.
  */
+/** A full color palette. Two ship: [VitrinePalette] (warm gold) and [EclipsePalette] (cool cyan). */
+data class BdoPalette(
+    val bg0: Color, val bg1: Color,
+    val surface1: Color, val surface2: Color, val surface3: Color, val surfaceHi: Color,
+    val gold: Color, val goldHi: Color, val goldDeep: Color, val goldLine: Color, val goldGlow: Color, val onGold: Color,
+    val onBg: Color, val onMuted: Color, val onFaint: Color,
+    val up: Color, val down: Color, val live: Color, val live2: Color,
+    val line: Color, val lineStrong: Color, val scrim: Color,
+)
+
+val VitrinePalette = BdoPalette(
+    bg0 = Color(0xFF0A0907), bg1 = Color(0xFF13100A),
+    surface1 = Color(0xFF16130D), surface2 = Color(0xFF1E1A11), surface3 = Color(0xFF231E14), surfaceHi = Color(0xFF2A2417),
+    gold = Color(0xFFCBA135), goldHi = Color(0xFFEAC766), goldDeep = Color(0xFF8A7220),
+    goldLine = Color(0xFFCBA135).copy(alpha = 0.30f), goldGlow = Color(0xFFCBA135).copy(alpha = 0.55f), onGold = Color(0xFF130F06),
+    onBg = Color(0xFFF3ECDD), onMuted = Color(0xFFB4AB98), onFaint = Color(0xFF7B7464),
+    up = Color(0xFF76C765), down = Color(0xFFE2604A), live = Color(0xFFCBA135), live2 = Color(0xFFEAC766),
+    line = Color(0xFFF3ECDD).copy(alpha = 0.07f), lineStrong = Color(0xFFF3ECDD).copy(alpha = 0.13f), scrim = Color(0xFF060503).copy(alpha = 0.74f),
+)
+
+/** Cool, daring alternative — obsidian-blue with a cyan "live" glow. */
+val EclipsePalette = BdoPalette(
+    bg0 = Color(0xFF06070B), bg1 = Color(0xFF0B0D14),
+    surface1 = Color(0xFF0F121B), surface2 = Color(0xFF161A26), surface3 = Color(0xFF1B2030), surfaceHi = Color(0xFF222840),
+    gold = Color(0xFFE3C46B), goldHi = Color(0xFFF6E3A6), goldDeep = Color(0xFF9C8743),
+    goldLine = Color(0xFFE3C46B).copy(alpha = 0.26f), goldGlow = Color(0xFF78D6E8).copy(alpha = 0.55f), onGold = Color(0xFF0A0B10),
+    onBg = Color(0xFFEEF1F8), onMuted = Color(0xFF9AA3B8), onFaint = Color(0xFF5E6678),
+    up = Color(0xFF56D6A0), down = Color(0xFFFF6B6B), live = Color(0xFF78D6E8), live2 = Color(0xFFA6ECF8),
+    line = Color(0xFFEEF1F8).copy(alpha = 0.07f), lineStrong = Color(0xFFEEF1F8).copy(alpha = 0.14f), scrim = Color(0xFF040509).copy(alpha = 0.76f),
+)
+
+/**
+ * Active palette accessor. Backed by Compose state so reads inside composables observe
+ * palette changes — flipping [BdoColors.palette] re-themes the whole app with no call-site
+ * changes (every screen reads `BdoColors.x`).
+ */
 object BdoColors {
-    // Backgrounds (app paints a vertical gradient bg0 -> bg1)
-    val bg0 = Color(0xFF0A0907)
-    val bg1 = Color(0xFF13100A)
-    // Surfaces / elevation
-    val surface1 = Color(0xFF16130D)
-    val surface2 = Color(0xFF1E1A11)
-    val surface3 = Color(0xFF231E14)
-    val surfaceHi = Color(0xFF2A2417)
-    // Gold (the accent — used as light & hairlines, never big fills)
-    val gold = Color(0xFFCBA135)
-    val goldHi = Color(0xFFEAC766)
-    val goldDeep = Color(0xFF8A7220)
-    val goldLine = gold.copy(alpha = 0.30f)   // engraved hairline
-    val goldGlow = gold.copy(alpha = 0.55f)   // glow hue
-    val onGold = Color(0xFF130F06)
-    // Text
-    val onBg = Color(0xFFF3ECDD)
-    val onMuted = Color(0xFFB4AB98)
-    val onFaint = Color(0xFF7B7464)
-    // Semantics
-    val up = Color(0xFF76C765)
-    val down = Color(0xFFE2604A)
-    val live = gold
-    val live2 = goldHi
-    // Lines / scrims
-    val line = onBg.copy(alpha = 0.07f)
-    val lineStrong = onBg.copy(alpha = 0.13f)
-    val scrim = Color(0xFF060503).copy(alpha = 0.74f)
+    var palette: BdoPalette by mutableStateOf(VitrinePalette)
+
+    val bg0 get() = palette.bg0
+    val bg1 get() = palette.bg1
+    val surface1 get() = palette.surface1
+    val surface2 get() = palette.surface2
+    val surface3 get() = palette.surface3
+    val surfaceHi get() = palette.surfaceHi
+    val gold get() = palette.gold
+    val goldHi get() = palette.goldHi
+    val goldDeep get() = palette.goldDeep
+    val goldLine get() = palette.goldLine
+    val goldGlow get() = palette.goldGlow
+    val onGold get() = palette.onGold
+    val onBg get() = palette.onBg
+    val onMuted get() = palette.onMuted
+    val onFaint get() = palette.onFaint
+    val up get() = palette.up
+    val down get() = palette.down
+    val live get() = palette.live
+    val live2 get() = palette.live2
+    val line get() = palette.line
+    val lineStrong get() = palette.lineStrong
+    val scrim get() = palette.scrim
 }
 
 /** Rarity / grade tints (0..5) — item monogram tiles, rarity dots. */
@@ -161,33 +197,33 @@ private val BdoShapes = Shapes(
     extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(26.dp),
 )
 
-private val BdoColorScheme = darkColorScheme(
-    primary = BdoColors.gold,
-    onPrimary = BdoColors.onGold,
-    primaryContainer = BdoColors.surfaceHi,
-    onPrimaryContainer = BdoColors.goldHi,
-    secondary = BdoColors.goldHi,
-    onSecondary = BdoColors.onGold,
-    background = BdoColors.bg0,
-    onBackground = BdoColors.onBg,
-    surface = BdoColors.surface1,
-    onSurface = BdoColors.onBg,
-    surfaceVariant = BdoColors.surface2,
-    onSurfaceVariant = BdoColors.onMuted,
-    surfaceContainerLowest = BdoColors.bg1,
-    surfaceContainerLow = BdoColors.surface1,
-    surfaceContainer = BdoColors.surface1,
-    surfaceContainerHigh = BdoColors.surface2,
-    surfaceContainerHighest = BdoColors.surface2,
-    outline = BdoColors.goldLine,
-    outlineVariant = BdoColors.line,
-    error = BdoColors.down,
-    onError = BdoColors.onGold,
-    scrim = BdoColors.scrim,
+private fun bdoColorScheme(p: BdoPalette) = darkColorScheme(
+    primary = p.gold,
+    onPrimary = p.onGold,
+    primaryContainer = p.surfaceHi,
+    onPrimaryContainer = p.goldHi,
+    secondary = p.goldHi,
+    onSecondary = p.onGold,
+    background = p.bg0,
+    onBackground = p.onBg,
+    surface = p.surface1,
+    onSurface = p.onBg,
+    surfaceVariant = p.surface2,
+    onSurfaceVariant = p.onMuted,
+    surfaceContainerLowest = p.bg1,
+    surfaceContainerLow = p.surface1,
+    surfaceContainer = p.surface1,
+    surfaceContainerHigh = p.surface2,
+    surfaceContainerHighest = p.surface2,
+    outline = p.goldLine,
+    outlineVariant = p.line,
+    error = p.down,
+    onError = p.onGold,
+    scrim = p.scrim,
 )
 
-/** Backwards-compatible accent handle used across screens. */
-val BdoGold = BdoColors.gold
+/** Backwards-compatible accent handle used across screens (tracks the active palette). */
+val BdoGold: Color get() = BdoColors.gold
 
 /** Standard motion easings (handoff §3). Use with tween(durationMillis, easing = ...). */
 object Motion {
@@ -196,12 +232,13 @@ object Motion {
     val standard = androidx.compose.animation.core.CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
 }
 
-/** Root background gradient (bg0 -> bg1 -> bg0). */
-val BdoBackground = Brush.verticalGradient(
-    0f to BdoColors.bg0,
-    0.5f to BdoColors.bg1,
-    1f to BdoColors.bg0,
-)
+/** Root background gradient (bg0 -> bg1 -> bg0). Computed so it tracks the active palette. */
+val BdoBackground: Brush
+    get() = Brush.verticalGradient(
+        0f to BdoColors.bg0,
+        0.5f to BdoColors.bg1,
+        1f to BdoColors.bg0,
+    )
 
 /**
  * Faceted-gem card shape: rounded corners except a 45° chamfer cut into the top-right —
@@ -236,9 +273,12 @@ class FacetedShape(
 val ScreenPadding = PaddingValues(horizontal = 16.dp)
 
 @Composable
-fun BdoBossTheme(content: @Composable () -> Unit) {
+fun BdoBossTheme(eclipse: Boolean = false, content: @Composable () -> Unit) {
+    val palette = if (eclipse) EclipsePalette else VitrinePalette
+    // Drive the global accessor so every BdoColors.* read re-themes on toggle.
+    SideEffect { BdoColors.palette = palette }
     MaterialTheme(
-        colorScheme = BdoColorScheme,
+        colorScheme = bdoColorScheme(palette),
         typography = BdoTypography,
         shapes = BdoShapes,
         content = content,

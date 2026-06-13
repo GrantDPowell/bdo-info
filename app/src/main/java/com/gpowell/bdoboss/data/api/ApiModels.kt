@@ -47,3 +47,57 @@ data class CouponsResponse(
     val data: List<Coupon> = emptyList(),
     val total: Int = 0,
 )
+
+/**
+ * News item — the /api/news shape isn't published, so this is intentionally tolerant:
+ * we read whichever common fields are present (title/url/date) and ignore the rest.
+ */
+@Serializable
+data class NewsItem(
+    val title: String = "",
+    val url: String = "",
+    val link: String = "",
+    val date: String = "",
+    @SerialName("published_at") val publishedAt: String = "",
+    val category: String = "",
+    val summary: String = "",
+) {
+    val href: String get() = url.ifBlank { link }
+    val whenText: String get() = date.ifBlank { publishedAt }
+}
+
+@Serializable
+data class NewsResponse(
+    val news: List<NewsItem> = emptyList(),
+    val articles: List<NewsItem> = emptyList(),
+    val data: List<NewsItem> = emptyList(),
+)
+
+/** Maintenance status — tolerant model (response shape not published). */
+@Serializable
+data class MaintenanceStatus(
+    val region: String = "",
+    @SerialName("in_maintenance") val inMaintenance: Boolean = false,
+    @SerialName("is_maintenance") val isMaintenance: Boolean = false,
+    val status: String = "",
+    val message: String = "",
+    val countdown: String = "",
+    @SerialName("next_maintenance") val nextMaintenance: String = "",
+) {
+    val active: Boolean get() = inMaintenance || isMaintenance || status.equals("maintenance", true)
+}
+
+/** Player search result entry. */
+@Serializable
+data class PlayerSearchResult(
+    @SerialName("family_name") val familyName: String = "",
+    @SerialName("profile_target") val profileTarget: String = "",
+    val region: String = "",
+)
+
+@Serializable
+data class PlayerSearchResponse(
+    val results: List<PlayerSearchResult> = emptyList(),
+    val players: List<PlayerSearchResult> = emptyList(),
+    val data: List<PlayerSearchResult> = emptyList(),
+)

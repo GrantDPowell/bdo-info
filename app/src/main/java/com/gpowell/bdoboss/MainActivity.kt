@@ -77,6 +77,7 @@ import com.gpowell.bdoboss.live.WsBoss
 import com.gpowell.bdoboss.notify.AlarmScheduler
 import com.gpowell.bdoboss.ui.AppSettingsScreen
 import com.gpowell.bdoboss.ui.BossDetailSheet
+import com.gpowell.bdoboss.ui.CreditsScreen
 import com.gpowell.bdoboss.ui.BossesScreen
 import com.gpowell.bdoboss.ui.EventsScreen
 import com.gpowell.bdoboss.ui.LiveHeader
@@ -152,7 +153,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settingsRepo = remember { SettingsRepository(applicationContext) }
             val effectsEnabled by settingsRepo.effectsEnabledFlow.collectAsState(initial = true)
-            BdoBossTheme {
+            val eclipseTheme by settingsRepo.eclipseThemeFlow.collectAsState(initial = false)
+            BdoBossTheme(eclipse = eclipseTheme) {
               CompositionLocalProvider(LocalEffectsEnabled provides effectsEnabled) {
                 val notifPermLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
@@ -168,6 +170,7 @@ class MainActivity : ComponentActivity() {
 
                 var tab by remember { mutableIntStateOf(0) }
                 var showSettings by remember { mutableStateOf(false) }
+                var showCredits by remember { mutableStateOf(false) }
                 // Cross-tab nav: Hub ITEM favorites jump into Market item detail.
                 // MarketScreen consumes the request and clears it.
                 var marketDetailItemId by remember { mutableStateOf<Int?>(null) }
@@ -258,6 +261,7 @@ class MainActivity : ComponentActivity() {
                                             tab = 1
                                         },
                                         onOpenSettings = { showSettings = true },
+                                        onOpenCredits = { showCredits = true },
                                     )
                                 }
                             }
@@ -268,6 +272,9 @@ class MainActivity : ComponentActivity() {
                     }
                     if (showSettings) {
                         AppSettingsScreen(onBack = { showSettings = false })
+                    }
+                    if (showCredits) {
+                        CreditsScreen(onBack = { showCredits = false })
                     }
                 }
               }

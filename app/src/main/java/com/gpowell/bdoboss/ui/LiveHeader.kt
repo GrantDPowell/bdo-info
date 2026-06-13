@@ -63,7 +63,7 @@ fun LiveHeader(live: LiveState) {
             }
             Spacer(Modifier.width(6.dp))
             Text(
-                if (connected) "LIVE · NA" else "LOCAL · NA",
+                if (connected) "LIVE" else "LOCAL",
                 style = BdoType.overline.copy(fontSize = 9.5.sp),
                 color = if (connected) BdoColors.live2 else BdoColors.onFaint,
             )

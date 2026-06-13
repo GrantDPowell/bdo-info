@@ -83,6 +83,9 @@ class SettingsRepository(private val context: Context) {
 
         // Orrery animated effects (gold dust, radar sweep, ticking prices, …). Default on.
         val EFFECTS = booleanPreferencesKey("effects_enabled")
+
+        // Theme palette: false = Vitrine (warm gold, default), true = Eclipse (cool cyan).
+        val ECLIPSE = booleanPreferencesKey("eclipse_theme")
     }
 
     // -------------------------------------------------------------------------
@@ -92,6 +95,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEffectsEnabled(value: Boolean) {
         context.dataStore.edit { it[Keys.EFFECTS] = value }
+    }
+
+    // -------------------------------------------------------------------------
+    // Theme palette toggle (Vitrine / Eclipse).
+    // -------------------------------------------------------------------------
+    val eclipseThemeFlow: Flow<Boolean> = context.dataStore.data.map { it[Keys.ECLIPSE] ?: false }
+
+    suspend fun setEclipseTheme(value: Boolean) {
+        context.dataStore.edit { it[Keys.ECLIPSE] = value }
     }
 
     // -------------------------------------------------------------------------
