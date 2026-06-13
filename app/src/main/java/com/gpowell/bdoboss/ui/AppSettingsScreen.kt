@@ -7,15 +7,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -32,14 +36,17 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -49,7 +56,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gpowell.bdoboss.BuildConfig
+import com.gpowell.bdoboss.data.DataSource
+import com.gpowell.bdoboss.data.DataSources
 import com.gpowell.bdoboss.data.SettingsRepository
+import com.gpowell.bdoboss.data.SourceStatus
 import com.gpowell.bdoboss.ui.theme.BdoGold
 import kotlinx.coroutines.launch
 
@@ -72,6 +82,15 @@ fun AppSettingsScreen(onBack: () -> Unit) {
     var keyInput by remember { mutableStateOf("") }
     var keyVisible by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
+
+    // Live up/down status for each data source, checked concurrently on open.
+    val sourceStatus = remember { mutableStateMapOf<String, SourceStatus>() }
+    LaunchedEffect(Unit) {
+        DataSources.all.forEach { src ->
+            sourceStatus[src.name] = SourceStatus.CHECKING
+            launch { sourceStatus[src.name] = DataSources.status(src) }
+        }
+    }
 
     val backgroundBrush = remember {
         Brush.verticalGradient(
@@ -183,17 +202,30 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), Arrangement.spacedBy(6.dp)) {
                     Row {
                         Text("Version", Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                        Text(BuildConfig.VERSION_NAME, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     LinkRow("Privacy Policy", "https://grantdpowell.github.io/bdo-info/privacy.html")
                     LinkRow("GitHub", "https://github.com/GrantDPowell/bdo-info")
-                    Text(
-                        "Data: bdoalerts.net · bdocodex.com · mmotimer.com",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
+
+            SettingsSectionHeader("DATA SOURCES")
+            Text(
+                "The APIs and data BDO Info is built on, with live status. Tap any " +
+                    "source to visit it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            DataSources.all.forEach { src ->
+                DataSourceCard(
+                    source = src,
+                    status = sourceStatus[src.name] ?: SourceStatus.CHECKING,
+                )
+            }
+
             Spacer(Modifier.width(0.dp)) // bottom breathing room via spacedBy
         }
     }
@@ -240,4 +272,60 @@ private fun LinkRow(label: String, url: String) {
         color = BdoGold,
         fontWeight = FontWeight.SemiBold,
     )
+}
+
+@Composable
+private fun DataSourceCard(source: DataSource, status: SourceStatus) {
+    val ctx = LocalContext.current
+    Card(
+        onClick = {
+            runCatching {
+                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(source.siteUrl)))
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    source.name,
+                    modifier = Modifier.weight(1f),
+                    fontWeight = FontWeight.SemiBold,
+                )
+                StatusPill(status)
+            }
+            Text(
+                source.role,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                source.attribution,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusPill(status: SourceStatus) {
+    val checkingColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val (label, color) = when (status) {
+        SourceStatus.UP -> "Online" to Color(0xFF6FBF5A)
+        SourceStatus.DOWN -> "Offline" to Color(0xFFE0593F)
+        SourceStatus.BUNDLED -> "Bundled" to BdoGold
+        SourceStatus.CHECKING -> "Checking…" to checkingColor
+    }
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(color.copy(alpha = 0.16f))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(7.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(5.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Medium)
+    }
 }

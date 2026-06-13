@@ -18,16 +18,23 @@ exact-alarm notifications, drop tables, live server data. Built 2026-06-12.
 
 ## Build (Windows)
 
-- `export JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"` before EVERY
-  gradle command — system java is 1.8 and will fail. SDK: `%LOCALAPPDATA%\Android\Sdk`.
+- `export JAVA_HOME="C:/Program Files/Microsoft/jdk-17.0.19.10-hotspot"` before
+  EVERY gradle command — system has NO java on PATH and the JDK is standalone (no
+  Android Studio on this machine). SDK: `C:/Android/Sdk` (command-line tools only,
+  installed via `cmdline-tools/latest/bin/sdkmanager.bat`). Also
+  `export ANDROID_HOME="C:/Android/Sdk"`. (Old box used Android Studio's JBR +
+  `%LOCALAPPDATA%\Android\Sdk` — both gone after the 2026-06-12 machine move.)
 - `./gradlew :app:testDebugUnitTest assembleDebug --no-daemon` — tests (45+, all
   must pass) + debug APK
 - `./gradlew assembleRelease bundleRelease --no-daemon` — release APK/AAB, signed via
   the untracked `keystore.properties` → `keystore/bdoinfo-release.jks` (BOTH
   gitignored, never committed; if they're lost the app identity is unrecoverable —
   keep off-machine backups)
-- Install: `"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" install -r app/build/outputs/apk/release/app-release.apk`
-- **Bump `versionCode` for every new Play upload** (currently 1, versionName "0.6")
+- Install: `C:/Android/Sdk/platform-tools/adb.exe -s <serial> install -r app/build/outputs/apk/release/app-release.apk`
+  (device must be release-signed to update in place — a debug APK won't overwrite
+  the release-signed install: INSTALL_FAILED_UPDATE_INCOMPATIBLE). Grant's S25
+  Ultra = serial `R3GYB0L1J1M` (SM-S938U, Android 16).
+- **Bump `versionCode` for every new Play upload** (currently 3, versionName "0.8")
 - Image tooling on this machine: NO magick/ffmpeg/python — use PowerShell +
   .NET System.Drawing (System.Drawing enum args must use full
   `[System.Drawing.Drawing2D...]` types, string casts fail in inline -Command)
