@@ -96,8 +96,9 @@ private val WEB_TOOLS = listOf(
         ),
     ),
     ToolCategory(
-        "Official & community",
+        "Accounts & community",
         listOf(
+            WebTool("Discord", "Log in (shared with other tools)", "https://discord.com/login", "DC"),
             WebTool("Official Site", "News, patch notes & login", "https://www.naeu.playblackdesert.com/en-US/", "PA"),
             WebTool("Patch Notes", "Latest updates", "https://www.naeu.playblackdesert.com/en-US/News", "PN"),
             WebTool("r/BlackDesertOnline", "Community subreddit", "https://www.reddit.com/r/blackdesertonline/", "RD"),

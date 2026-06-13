@@ -24,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -65,6 +67,11 @@ private const val HUB_USER_AGENT =
     "Mozilla/5.0 (Linux; Android 14; SM-S938U) AppleWebKit/537.36 (KHTML, like Gecko) " +
         "Chrome/126.0.0.0 Mobile Safari/537.36"
 
+/** Desktop Chrome UA — used by the "desktop site" toggle (e.g. Discord's QR login page). */
+private const val DESKTOP_USER_AGENT =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/126.0.0.0 Safari/537.36"
+
 /** Empty 200 body served in place of a blocked ad/tracker request. */
 private fun blankAdResponse(): WebResourceResponse =
     WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
@@ -79,6 +86,8 @@ private fun WebView.applyHubSettings() {
     settings.domStorageEnabled = true
     @Suppress("DEPRECATION")
     settings.databaseEnabled = true
+    // hCaptcha / Cloudflare challenge assets sometimes load over mixed schemes.
+    settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
     settings.userAgentString = HUB_USER_AGENT
     // Discord (and many) logins open the OAuth consent in a popup window.
     settings.setSupportMultipleWindows(true)
@@ -131,6 +140,7 @@ fun BrowserScreen(
     var pageTitle by remember { mutableStateOf("") }
     var pageUrl by remember { mutableStateOf(initialUrl) }
     var progress by remember { mutableIntStateOf(0) }
+    var desktopMode by remember { mutableStateOf(false) }
     // Non-null while an OAuth login popup is showing as a full-screen overlay.
     var popupView by remember { mutableStateOf<WebView?>(null) }
     // Holder so the OAuth popup's onCloseWindow can reload the main view (forward ref).
@@ -232,6 +242,19 @@ fun BrowserScreen(
                         if (isFav) Icons.Filled.Star else Icons.Filled.StarBorder,
                         contentDescription = if (isFav) "Remove bookmark" else "Bookmark page",
                         tint = if (isFav) BdoGold else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = {
+                    desktopMode = !desktopMode
+                    webView.settings.userAgentString = if (desktopMode) DESKTOP_USER_AGENT else HUB_USER_AGENT
+                    webView.settings.useWideViewPort = desktopMode
+                    webView.settings.loadWithOverviewMode = desktopMode
+                    webView.reload()
+                }) {
+                    Icon(
+                        if (desktopMode) Icons.Filled.PhoneAndroid else Icons.Filled.Computer,
+                        contentDescription = if (desktopMode) "Mobile site" else "Desktop site",
+                        tint = if (desktopMode) BdoGold else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 IconButton(onClick = { webView.reload() }) {

@@ -107,9 +107,25 @@ object AdBlocker {
      * True if [host] is, or is a subdomain of, any [blockedDomains] entry.
      * Null/blank hosts are never blocked.
      */
+    /**
+     * Login-critical hosts that must NEVER be blocked, even if a future blocklist
+     * entry would otherwise match — captcha (hCaptcha/reCAPTCHA/Cloudflare/Arkose),
+     * Discord, and OAuth providers. Keeps "Log in with Discord" flows working.
+     */
+    private val allowlist: Set<String> = setOf(
+        "hcaptcha.com", "recaptcha.net", "gstatic.com", "google.com",
+        "cloudflare.com", "challenges.cloudflare.com", "arkoselabs.com", "funcaptcha.com",
+        "discord.com", "discord.gg", "discordapp.com", "discordapp.net",
+        "accounts.google.com",
+    )
+
+    private fun Set<String>.matches(host: String) =
+        any { domain -> host == domain || host.endsWith(".$domain") }
+
     fun isAdHost(host: String?): Boolean {
         if (host.isNullOrBlank()) return false
         val h = host.lowercase().trimEnd('.')
-        return blockedDomains.any { domain -> h == domain || h.endsWith(".$domain") }
+        if (allowlist.matches(h)) return false
+        return blockedDomains.matches(h)
     }
 }
