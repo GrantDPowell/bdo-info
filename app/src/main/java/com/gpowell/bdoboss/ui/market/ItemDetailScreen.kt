@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +42,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -45,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.gpowell.bdoboss.data.Favorite
 import com.gpowell.bdoboss.data.FavoriteType
 import com.gpowell.bdoboss.data.FavoritesRepository
@@ -61,8 +67,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // ---------------------------------------------------------------------------
-// Item detail: enhancement-level price table (itemAll) + 90-day history chart
-// (history) + ⭐ watchlist toggle (unified favorites store, type ITEM).
+// Item detail: in-depth stats panel + enhancement-level price table (itemAll)
+// + history chart (history) with range + enhancement-level toggles + ⭐ watchlist.
 // ---------------------------------------------------------------------------
 
 /**
@@ -79,6 +85,24 @@ internal fun enhancementLabel(sid: Int, maxSid: Int): String = when {
 }
 
 private val PEN_NAMES = listOf("PRI", "DUO", "TRI", "TET", "PEN")
+
+/** Days kept per history-range option. */
+private enum class HistoryRange(val label: String, val days: Int) {
+    D7("7D", 7), D30("30D", 30), D90("90D", 90)
+}
+
+/** Coarse "x ago" for a last-sold epoch-second timestamp. Pure + unit-tested. */
+internal fun relativeTime(epochSec: Long, nowSec: Long): String {
+    if (epochSec <= 0) return "—"
+    val s = (nowSec - epochSec).coerceAtLeast(0)
+    return when {
+        s < 60 -> "just now"
+        s < 3600 -> "${s / 60}m ago"
+        s < 86_400 -> "${s / 3600}h ago"
+        s < 2_592_000 -> "${s / 86_400}d ago"
+        else -> "${s / 2_592_000}mo ago"
+    }
+}
 
 @Composable
 fun ItemDetailScreen(
@@ -101,6 +125,10 @@ fun ItemDetailScreen(
     var indexed by remember(itemId) { mutableStateOf<IndexedItem?>(null) }
     var rows by remember(itemId) { mutableStateOf<List<MarketPrice>?>(null) } // null = loading
     var rowsUnavailable by remember(itemId) { mutableStateOf(false) }
+
+    // History is fetched per selected enhancement level.
+    var selectedSid by remember(itemId) { mutableStateOf(0) }
+    var range by remember(itemId) { mutableStateOf(HistoryRange.D90) }
     var history by remember(itemId) { mutableStateOf<List<PricePoint>?>(null) } // null = loading
 
     LaunchedEffect(itemId) {
@@ -114,7 +142,11 @@ fun ItemDetailScreen(
                 rowsUnavailable = true
             }
         }
-        history = when (val result = market.history(itemId)) {
+    }
+
+    LaunchedEffect(itemId, selectedSid) {
+        history = null
+        history = when (val result = market.history(itemId, selectedSid)) {
             is ApiResult.Success -> result.data
             else -> emptyList()
         }
@@ -123,6 +155,7 @@ fun ItemDetailScreen(
     val name = rows?.firstOrNull()?.name?.takeIf { it.isNotBlank() }
         ?: indexed?.name
         ?: "Item $itemId"
+    val baseRow = rows?.firstOrNull { it.enhancement == 0 } ?: rows?.firstOrNull()
 
     Column(
         modifier = Modifier
@@ -139,7 +172,7 @@ fun ItemDetailScreen(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = BdoGold)
             }
-            GradeMonogram(name = name, grade = indexed?.grade ?: 0, size = 36.dp)
+            ItemIcon(itemId = itemId, name = name, grade = indexed?.grade ?: 0, size = 36.dp)
             Spacer(Modifier.width(10.dp))
             Text(
                 name,
@@ -167,6 +200,13 @@ fun ItemDetailScreen(
             }
         }
 
+        // In-depth stats from the base (sid 0) row.
+        if (baseRow != null && (baseRow.basePrice > 0 || baseRow.totalTrades > 0)) {
+            Spacer(Modifier.height(4.dp))
+            StatsPanel(baseRow)
+        }
+
+        Spacer(Modifier.height(12.dp))
         MarketSectionHeader("MARKET PRICES")
         Spacer(Modifier.height(8.dp))
         val priceRows = rows
@@ -178,15 +218,53 @@ fun ItemDetailScreen(
         }
 
         Spacer(Modifier.height(16.dp))
-        MarketSectionHeader("PRICE HISTORY (90D)")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            MarketSectionHeader("PRICE HISTORY")
+            Spacer(Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                HistoryRange.entries.forEach { r ->
+                    FilterChip(
+                        selected = range == r,
+                        onClick = { range = r },
+                        label = { Text(r.label, fontSize = 11.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = BdoGold.copy(alpha = 0.22f),
+                            selectedLabelColor = BdoGold,
+                        ),
+                    )
+                }
+            }
+        }
+
+        // Enhancement-level selector when the item enhances (sids beyond base).
+        val sids = priceRows?.map { it.enhancement }?.distinct()?.sorted().orEmpty()
+        if (sids.size > 1) {
+            val maxSid = sids.max()
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                sids.forEach { sid ->
+                    FilterChip(
+                        selected = selectedSid == sid,
+                        onClick = { selectedSid = sid },
+                        label = { Text(enhancementLabel(sid, maxSid), fontSize = 11.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = BdoGold.copy(alpha = 0.22f),
+                            selectedLabelColor = BdoGold,
+                        ),
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(8.dp))
-        val points = history
+        val allPoints = history
+        val points = remember(allPoints, range) { filterRange(allPoints.orEmpty(), range.days) }
         when {
-            points == null -> DimLine("Loading history…")
+            allPoints == null -> DimLine("Loading history…")
             points.isEmpty() -> DimLine("No history available.")
             else -> PriceHistoryChart(
                 points = points,
-                modifier = Modifier.fillMaxWidth().height(160.dp),
+                modifier = Modifier.fillMaxWidth().height(170.dp),
             )
         }
 
@@ -200,6 +278,14 @@ fun ItemDetailScreen(
     }
 }
 
+/** Keeps points within [days] of the latest sample (data can lag "now"). */
+private fun filterRange(points: List<PricePoint>, days: Int): List<PricePoint> {
+    if (points.isEmpty()) return points
+    val cutoff = points.last().at - days.toLong() * 86_400L
+    val kept = points.filter { it.at >= cutoff }
+    return if (kept.size >= 2) kept else points
+}
+
 @Composable
 private fun DimLine(text: String) {
     Text(
@@ -207,6 +293,59 @@ private fun DimLine(text: String) {
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+// ---------------------------------------------------------------------------
+// In-depth stats panel
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun StatsPanel(row: MarketPrice) {
+    val spread = if (row.basePrice > 0 && row.lastSoldPrice > 0) {
+        (row.lastSoldPrice - row.basePrice).toDouble() / row.basePrice * 100.0
+    } else {
+        null
+    }
+    val now = System.currentTimeMillis() / 1000L
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), Arrangement.spacedBy(6.dp)) {
+            StatRow("Base price", formatSilver(row.basePrice), valueColor = BdoGold)
+            StatRow("In stock", row.stock.toString())
+            StatRow("Total trades", formatCompact(row.totalTrades))
+            if (row.priceMin > 0 || row.priceMax > 0) {
+                StatRow("Price range", "${formatSilver(row.priceMin)} – ${formatSilver(row.priceMax)}")
+            }
+            if (row.lastSoldPrice > 0) {
+                StatRow("Last sold", "${formatSilver(row.lastSoldPrice)} · ${relativeTime(row.lastSoldAt, now)}")
+            }
+            if (spread != null) {
+                val sign = if (spread >= 0) "+" else ""
+                StatRow(
+                    "Last vs base",
+                    "$sign%.1f%%".format(spread),
+                    valueColor = if (spread >= 0) Color(0xFF6FBF5A) else Color(0xFFE0593F),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatRow(label: String, value: String, valueColor: Color = Color.Unspecified) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (valueColor == Color.Unspecified) MaterialTheme.colorScheme.onBackground else valueColor,
+        )
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -263,19 +402,34 @@ private fun PriceTableRow(
 }
 
 // ---------------------------------------------------------------------------
-// 90-day price chart: gold line + soft gradient fill, min/max labels, no axes.
+// Price chart: gold line + soft gradient fill, min/max guide lines + labels,
+// last-price dot. No axes (range/level chosen via chips above).
 // ---------------------------------------------------------------------------
 
 @Composable
 private fun PriceHistoryChart(points: List<PricePoint>, modifier: Modifier = Modifier) {
     val min = points.minOf { it.price }
     val max = points.maxOf { it.price }
+    val last = points.last().price
+    val dimColor = MaterialTheme.colorScheme.onSurfaceVariant
     Box(modifier) {
         Canvas(Modifier.fillMaxSize()) {
             val span = (max - min).coerceAtLeast(1L).toFloat()
             // 8% vertical padding so the stroke never clips at the extremes.
             fun yOf(price: Long): Float =
                 size.height * (0.92f - 0.84f * ((price - min) / span))
+
+            // Faint min/max guide lines.
+            val dash = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))
+            listOf(min, max).forEach { p ->
+                drawLine(
+                    color = dimColor.copy(alpha = 0.25f),
+                    start = Offset(0f, yOf(p)),
+                    end = Offset(size.width, yOf(p)),
+                    strokeWidth = 1f,
+                    pathEffect = dash,
+                )
+            }
 
             if (points.size == 1) {
                 drawCircle(BdoGold, radius = 3.dp.toPx(), center = Offset(size.width / 2f, yOf(points[0].price)))
@@ -305,18 +459,27 @@ private fun PriceHistoryChart(points: List<PricePoint>, modifier: Modifier = Mod
                 color = BdoGold,
                 style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
             )
+            // Last-price marker.
+            drawCircle(BdoGold, radius = 3.dp.toPx(), center = Offset(size.width, yOf(last)))
         }
         Text(
             formatSilver(max),
             modifier = Modifier.align(Alignment.TopStart).padding(horizontal = 4.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = dimColor,
         )
         Text(
             formatSilver(min),
             modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 4.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = dimColor,
+        )
+        Text(
+            "now ${formatSilver(last)}",
+            modifier = Modifier.align(Alignment.TopEnd).padding(horizontal = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = BdoGold,
+            fontWeight = FontWeight.SemiBold,
         )
     }
 }

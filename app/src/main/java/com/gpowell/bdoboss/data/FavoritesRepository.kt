@@ -25,6 +25,7 @@ data class Favorite(
     val itemId: Int = 0,          // ITEM
     val region: String = "",      // PLAYER
     val familyName: String = "",  // PLAYER
+    val targetPrice: Long = 0L,   // ITEM — optional buy-target silver (0 = none)
 ) {
     companion object {
         private val serializer = ListSerializer(serializer())
@@ -208,6 +209,35 @@ class FavoritesRepository(private val context: Context) {
             }
         }
         return added
+    }
+
+    // -----------------------------------------------------------------------
+    // setTarget — set/clear an ITEM favorite's buy-target price (0 clears).
+    // If the item isn't yet favorited, adds it to the watchlist with the target.
+    // Title is best-effort (caller passes the known name); no-op if itemId == 0.
+    // -----------------------------------------------------------------------
+
+    suspend fun setTarget(itemId: Int, target: Long, title: String = "", url: String = "") {
+        if (itemId == 0) return
+        context.favoritesDataStore.edit { prefs ->
+            val current = Favorite.decode(prefs[Keys.FAVORITES] ?: "")
+            val existing = Favorite.findMatch(current, FavoriteType.ITEM, itemId = itemId)
+            val updated = if (existing != null) {
+                current.map { if (it.id == existing.id) it.copy(targetPrice = target) else it }
+            } else {
+                val newId = (current.maxOfOrNull { it.id } ?: 0L) + 1L
+                current + Favorite(
+                    id = newId,
+                    type = FavoriteType.ITEM,
+                    title = title.ifBlank { "Item $itemId" },
+                    addedAt = System.currentTimeMillis() / 1000L,
+                    url = url,
+                    itemId = itemId,
+                    targetPrice = target,
+                )
+            }
+            prefs[Keys.FAVORITES] = Favorite.encode(updated)
+        }
     }
 
     // -----------------------------------------------------------------------

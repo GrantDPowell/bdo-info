@@ -1,9 +1,11 @@
 package com.gpowell.bdoboss
 
+import com.gpowell.bdoboss.data.market.MarketListing
 import com.gpowell.bdoboss.data.market.MarketPrice
 import com.gpowell.bdoboss.data.market.PricePoint
 import com.gpowell.bdoboss.data.market.WaitListEntry
 import com.gpowell.bdoboss.data.market.parseHistory
+import com.gpowell.bdoboss.data.market.parseMarketListings
 import com.gpowell.bdoboss.data.market.parseMarketPrices
 import com.gpowell.bdoboss.data.market.parseSearchPrices
 import com.gpowell.bdoboss.data.market.parseWaitList
@@ -37,6 +39,11 @@ class ArshaParsingTest {
                     stock = 7_498,
                     lastSoldPrice = 1_550_000,
                     lastSoldAt = 1_781_295_578,
+                    totalTrades = 682_271_935,
+                    priceMin = 75_000,
+                    priceMax = 5_000_000,
+                    minEnhance = 0,
+                    maxEnhance = 0,
                 ),
             ),
             prices,
@@ -83,10 +90,32 @@ class ArshaParsingTest {
                     name = "Memory Fragment",
                     basePrice = 1_820_000,
                     stock = 0,
+                    totalTrades = 949_683_671,
                 ),
             ),
             prices,
         )
+    }
+
+    // ---- /v2/{region}/GetWorldMarketList (category listing) ------------------
+
+    @Test fun `category list parses rows with main and sub category`() {
+        val listings = parseMarketListings(fixture("marketlist.json"))
+        assertEquals(2, listings.size)
+        assertEquals(
+            MarketListing(
+                itemId = 12001,
+                name = "Yuria Ring",
+                stock = 13,
+                totalTrades = 543_487,
+                basePrice = 62_000,
+                mainCategory = 20,
+                subCategory = 1,
+            ),
+            listings[0],
+        )
+        assertEquals("Bares Ring", listings[1].name)
+        assertEquals(20, listings[1].mainCategory)
     }
 
     // ---- /v2/{region}/GetWorldMarketWaitList --------------------------------

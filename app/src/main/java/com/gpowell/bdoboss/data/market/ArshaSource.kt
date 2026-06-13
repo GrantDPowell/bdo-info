@@ -2,6 +2,7 @@ package com.gpowell.bdoboss.data.market
 
 import com.gpowell.bdoboss.data.api.ApiResult
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -33,6 +34,9 @@ import java.io.IOException
  *    parameter 'ids'"). Slim rows: name, id, currentStock, basePrice, totalTrades.
  *  - `GET /v2/{region}/GetWorldMarketWaitList?lang=en` — array of
  *    {name, id, sid, price, liveAt (epoch sec)}.
+ *  - `GET /v2/{region}/GetWorldMarketList?mainCategory=M&subCategory=S&lang=en` —
+ *    every item in a category: {name, id, currentStock, totalTrades, basePrice,
+ *    mainCategory, subCategory}. subCategory defaults to 1 when omitted.
  *  - `GET /v2/{region}/GetMarketPriceInfo?id={id}&sid={enh}&lang=en` —
  *    {name, id, sid, history: {"<epochMillis>": price, ...}} (~90 daily points).
  *
@@ -54,6 +58,11 @@ class ArshaSource(
         const val DEFAULT_REGION = "na"
         private const val PRICE_TTL_MS = 30L * 60 * 1000
         private const val WAITLIST_TTL_MS = 5L * 60 * 1000
+        // arsha's upstream intermittently 500s (Imperva). Those clear in a beat,
+        // so retry transient 5xx a few times before giving up — this is the main
+        // reason items would otherwise show "temporarily unavailable".
+        private const val MAX_TRIES = 4
+        private const val RETRY_DELAY_MS = 350L
     }
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -62,6 +71,7 @@ class ArshaSource(
     private val lock = Any()
     private val priceCache = mutableMapOf<String, Pair<Long, List<MarketPrice>>>()
     private val historyCache = mutableMapOf<String, Pair<Long, List<PricePoint>>>()
+    private val listingCache = mutableMapOf<String, Pair<Long, List<MarketListing>>>()
     private var waitListCache: Pair<Long, List<WaitListEntry>>? = null
 
     // =========================================================================
@@ -116,6 +126,30 @@ class ArshaSource(
         return result
     }
 
+    override suspend fun categoryList(
+        mainCategory: Int,
+        subCategory: Int,
+    ): ApiResult<List<MarketListing>> {
+        val key = "cat:$mainCategory:$subCategory"
+        synchronized(lock) {
+            listingCache[key]?.let { (at, value) ->
+                if (clock() - at < PRICE_TTL_MS) return ApiResult.Success(value)
+            }
+        }
+        val result = fetchParsed(
+            "/v2/$region/GetWorldMarketList",
+            mapOf(
+                "mainCategory" to mainCategory.toString(),
+                "subCategory" to subCategory.toString(),
+            ),
+            ::parseMarketListings,
+        )
+        if (result is ApiResult.Success) {
+            synchronized(lock) { listingCache[key] = clock() to result.data }
+        }
+        return result
+    }
+
     override suspend fun history(itemId: Int, enhancement: Int): ApiResult<List<PricePoint>> {
         val key = "history:$itemId:$enhancement"
         synchronized(lock) {
@@ -156,9 +190,10 @@ class ArshaSource(
     }
 
     /**
-     * GET [path]?[params]&lang=en, parse body with [parse].
-     * IOException → Offline; non-2xx → HttpError(code); body/parse failure →
-     * HttpError(-1) (same decode sentinel as BdoAlertsApi).
+     * GET [path]?[params]&lang=en, parse body with [parse]. Transient 5xx
+     * (arsha's Imperva blocks) are retried up to [MAX_TRIES]; 4xx fail fast.
+     * IOException → Offline; body/parse failure → HttpError(-1) (same decode
+     * sentinel as BdoAlertsApi).
      */
     private suspend fun <T> fetchParsed(
         path: String,
@@ -168,16 +203,31 @@ class ArshaSource(
         val query = (params + ("lang" to "en")).entries.joinToString("&") { (k, v) ->
             "${k.encodeUrl()}=${v.encodeUrl()}"
         }
-        val request = Request.Builder().url("$baseUrl$path?$query").build()
-        try {
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful) return@withContext ApiResult.HttpError(response.code)
-            val body = response.body?.string() ?: return@withContext ApiResult.HttpError(-1)
-            runCatching { ApiResult.Success(parse(json.parseToJsonElement(body))) }
-                .getOrElse { ApiResult.HttpError(-1) }
-        } catch (_: IOException) {
-            ApiResult.Offline
+        val url = "$baseUrl$path?$query"
+        var lastError: ApiResult<T> = ApiResult.HttpError(-1)
+        repeat(MAX_TRIES) { attempt ->
+            try {
+                client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                    when {
+                        response.isSuccessful -> {
+                            val body = response.body?.string()
+                                ?: return@withContext ApiResult.HttpError(-1)
+                            return@withContext runCatching {
+                                ApiResult.Success(parse(json.parseToJsonElement(body)))
+                            }.getOrElse { ApiResult.HttpError(-1) }
+                        }
+                        // 5xx is transient (Imperva) — record and retry.
+                        response.code in 500..599 -> lastError = ApiResult.HttpError(response.code)
+                        // 4xx is a real client error — don't retry.
+                        else -> return@withContext ApiResult.HttpError(response.code)
+                    }
+                }
+            } catch (_: IOException) {
+                return@withContext ApiResult.Offline
+            }
+            if (attempt < MAX_TRIES - 1) delay(RETRY_DELAY_MS)
         }
+        lastError
     }
 
     private fun String.encodeUrl(): String =
@@ -209,6 +259,11 @@ internal fun parseMarketPrices(el: JsonElement): List<MarketPrice> = el.asObject
         stock = o.long("currentStock"),
         lastSoldPrice = o.long("lastSoldPrice"),
         lastSoldAt = o.long("lastSoldTime"),
+        totalTrades = o.long("totalTrades"),
+        priceMin = o.long("priceMin"),
+        priceMax = o.long("priceMax"),
+        minEnhance = o.int("minEnhance"),
+        maxEnhance = o.int("maxEnhance"),
     )
 }
 
@@ -220,6 +275,20 @@ internal fun parseSearchPrices(el: JsonElement): List<MarketPrice> = el.asObject
         name = o.str("name"),
         basePrice = o.long("basePrice"),
         stock = o.long("currentStock"),
+        totalTrades = o.long("totalTrades"),
+    )
+}
+
+/** Parses /GetWorldMarketList rows (category listing). */
+internal fun parseMarketListings(el: JsonElement): List<MarketListing> = el.asObjects().map { o ->
+    MarketListing(
+        itemId = o.int("id"),
+        name = o.str("name"),
+        stock = o.long("currentStock"),
+        totalTrades = o.long("totalTrades"),
+        basePrice = o.long("basePrice"),
+        mainCategory = o.int("mainCategory"),
+        subCategory = o.int("subCategory"),
     )
 }
 

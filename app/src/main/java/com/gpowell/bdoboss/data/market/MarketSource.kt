@@ -6,9 +6,15 @@ import com.gpowell.bdoboss.data.api.ApiResult
  * One marketplace listing row — a single (item, enhancement) pair.
  *
  * Field mapping verified against live arsha.io v2 payloads (2026-06-12):
- * `{"name":"Memory Fragment","id":44195,"sid":0,"basePrice":1490000,
- *   "currentStock":7498,"lastSoldPrice":1550000,"lastSoldTime":1781295578,...}`
+ * `{"name":"Memory Fragment","id":44195,"sid":0,"minEnhance":0,"maxEnhance":0,
+ *   "basePrice":1490000,"currentStock":7498,"totalTrades":682271935,
+ *   "priceMin":75000,"priceMax":5000000,"lastSoldPrice":1550000,
+ *   "lastSoldTime":1781295578}`
  * arsha calls the enhancement level `sid` and timestamps are epoch seconds.
+ *
+ * [totalTrades] is the item's lifetime trade volume; [priceMin]/[priceMax] are
+ * the marketplace price floor/ceiling for this (item, enhancement). These come
+ * free from the same payload and power the in-depth stats panel.
  */
 data class MarketPrice(
     val itemId: Int,
@@ -18,6 +24,27 @@ data class MarketPrice(
     val stock: Long,
     val lastSoldPrice: Long = 0,
     val lastSoldAt: Long = 0, // epoch seconds
+    val totalTrades: Long = 0,
+    val priceMin: Long = 0,
+    val priceMax: Long = 0,
+    val minEnhance: Int = 0,
+    val maxEnhance: Int = 0,
+)
+
+/**
+ * One row of a category listing (`GetWorldMarketList`). Slimmer than
+ * [MarketPrice] — the category endpoint only returns base-level summary fields.
+ * arsha shape: `{"name":"Yuria Ring","id":12001,"currentStock":13,
+ * "totalTrades":543487,"basePrice":62000,"mainCategory":20,"subCategory":1}`.
+ */
+data class MarketListing(
+    val itemId: Int,
+    val name: String,
+    val stock: Long,
+    val totalTrades: Long,
+    val basePrice: Long,
+    val mainCategory: Int,
+    val subCategory: Int,
 )
 
 /**
@@ -57,6 +84,16 @@ interface MarketSource {
 
     /** Items currently on the marketplace waiting list. */
     suspend fun waitList(): ApiResult<List<WaitListEntry>>
+
+    /**
+     * Every item in a market category, via `GetWorldMarketList`. [subCategory]
+     * defaults to 1 (the endpoint's own default). Use the bundled category tree
+     * ([MarketCategoryRepository]) for the main/sub code↔name mapping.
+     */
+    suspend fun categoryList(
+        mainCategory: Int,
+        subCategory: Int = 1,
+    ): ApiResult<List<MarketListing>>
 
     /** Daily price history (~90 days) for one (item, enhancement). */
     suspend fun history(itemId: Int, enhancement: Int = 0): ApiResult<List<PricePoint>>
