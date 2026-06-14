@@ -76,8 +76,8 @@ import kotlin.math.sin
 
 // dial geometry in a 360 x 372 design space (scaled to width at runtime)
 private const val CXv = 180f
-private const val CYv = 184f
-private const val Rv = 146f   // ~12% larger ring (fills more of the width)
+private const val CYv = 196f   // nudged down to leave headroom for the NOW arrow above the ring
+private const val Rv = 146f    // ~12% larger ring (fills more of the width)
 private const val WINDOW_MS = 24L * 3600L * 1000L
 
 private data class DialNode(val spawn: Spawn, val ms: Long, val deg: Float, val displayDeg: Float = deg)
@@ -207,7 +207,7 @@ private fun DialCanvas(
         nodes.associate { n ->
             val r = kotlin.random.Random(n.spawn.at.epochSecond * 73L + regenSeed)
             n.spawn.at.epochSecond to DialStar(
-                frac = 0.35f + r.nextFloat() * 0.50f,   // 35–85% so stars clear the boss icons
+                frac = 0.35f + r.nextFloat() * 0.45f,   // 35–80% so stars clear the boss icons
                 size = 0.80f + r.nextFloat() * 1.70f,   // min held at 0.8; max raised
                 tw = r.nextFloat() * (2 * Math.PI).toFloat(),
                 twAmp = 0.18f + r.nextFloat() * 0.42f,  // independent twinkle strength
@@ -216,8 +216,9 @@ private fun DialCanvas(
             )
         }
     }
-    // Ignite the constellation whenever the boss set changes OR the wheel is spun.
-    LaunchedEffect(bossKey, regenSeed) {
+    // Natural ignite: when the boss set changes, replay the star ignite in place (no spin).
+    // The spin easter egg drives its own ignite AFTER the spin stops (see long-press handler).
+    LaunchedEffect(bossKey) {
         regen.snapTo(0f)
         regen.animateTo(1f, tween(900 + nodes.size * 170, easing = LinearEasing))
     }
@@ -238,10 +239,14 @@ private fun DialCanvas(
                     detectTapGestures(onLongPress = {
                         scope.launch {
                             if (spin.isRunning) return@launch
-                            regenSeed++
+                            // 1) clear the constellation, 2) SPIN the wheel and STOP,
+                            // 3) THEN draw the new stars (ignite one by one).
+                            regen.snapTo(0f)
                             spin.snapTo(0f)
                             spin.animateTo(360f, tween(1300, easing = FastOutSlowInEasing))
                             spin.snapTo(0f)
+                            regenSeed++
+                            regen.animateTo(1f, tween(900 + nodes.size * 170, easing = LinearEasing))
                         }
                     })
                 },
@@ -439,19 +444,19 @@ private fun DialCanvas(
                     }
                 }
 
-                // NOW marker: a glowing gold arrowhead sitting ABOVE the ring, pointing down
-                // at the top of the ring (= live "now"; spawns sweep clockwise away from it).
+                // NOW marker: a glowing gold arrowhead floating clearly ABOVE the ring with a
+                // gap, pointing down AT the ring (= live "now"; spawns sweep clockwise away).
                 val ringTopY = cy - R
                 val aw = 8f * scale
-                val baseY = ringTopY - 17f * scale
-                val tipY = ringTopY - 3f * scale
+                val baseY = ringTopY - 30f * scale   // arrow body, well above the ring
+                val tipY = ringTopY - 16f * scale    // tip stops ~16px short of the ring (gap)
                 val arrow = Path().apply {
                     moveTo(cx - aw, baseY)
                     lineTo(cx + aw, baseY)
                     lineTo(cx, tipY)
                     close()
                 }
-                drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f), radius = 9f * scale, center = Offset(cx, baseY + 4f * scale))
+                drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f), radius = 9f * scale, center = Offset(cx, (baseY + tipY) / 2f))
                 drawPath(arrow, BdoColors.goldHi)
             }
 
@@ -498,7 +503,7 @@ private fun DialCanvas(
                 "NOW",
                 style = BdoType.overline.copy(fontSize = 8.5.sp),
                 color = BdoColors.onFaint,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = with(density) { ((CYv - Rv) * scale).toDp() } - 34.dp),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = with(density) { ((CYv - Rv) * scale).toDp() } - 46.dp),
             )
         }
     }
