@@ -4,12 +4,15 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -33,6 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,12 +45,15 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -200,8 +207,12 @@ private fun DialCanvas(
     // The set changes only when a boss comes/goes or the wheel is spun.
     val scope = rememberCoroutineScope()
     var regenSeed by remember { mutableIntStateOf(0) }
-    val regen = remember { Animatable(1f) }   // 1 = settled; animates 0→1 to ignite stars
-    val spin = remember { Animatable(0f) }     // boss-wheel spin (easter egg), degrees
+    val regen = remember { Animatable(1f) }       // 1 = settled; animates 0→1 to ignite stars
+    var spinAngle by remember { mutableFloatStateOf(0f) }  // boss-wheel rotation (drag), degrees
+    var holding by remember { mutableStateOf(false) }      // true while dragging the spin gesture
+    // Center text dims out while holding / during the ignite, and fades back in — never pops.
+    val holdFade by animateFloatAsState(if (holding) 0f else 1f, tween(350), label = "holdFade")
+    val guideFade by animateFloatAsState(if (holding) 1f else 0f, tween(300), label = "guideFade")
     val bossKey = nodes.map { it.spawn.at.epochSecond }.sorted().joinToString(",")
     val stars = remember(bossKey, regenSeed) {
         nodes.associate { n ->
@@ -233,22 +244,57 @@ private fun DialCanvas(
             Modifier
                 .fillMaxWidth()
                 .height(hDp)
-                // Easter egg: long-press the dial to spin the boss-wheel one revolution,
-                // which regenerates the constellation (stars re-ignite one by one).
-                .pointerInput(Unit) {
-                    detectTapGestures(onLongPress = {
-                        scope.launch {
-                            if (spin.isRunning) return@launch
-                            // 1) clear the constellation, 2) SPIN the wheel and STOP,
-                            // 3) THEN draw the new stars (ignite one by one).
-                            regen.snapTo(0f)
-                            spin.snapTo(0f)
-                            spin.animateTo(360f, tween(1300, easing = FastOutSlowInEasing))
-                            spin.snapTo(0f)
-                            regenSeed++
-                            regen.animateTo(1f, tween(900 + nodes.size * 170, easing = LinearEasing))
-                        }
-                    })
+                // Easter egg: hold a star → the wording dims out and a circular guide fades in;
+                // drag around that circle to spin the constellation; complete one full revolution
+                // to regenerate it (clear → settle the spin → re-ignite the stars one by one).
+                .pointerInput(scale) {
+                    val center = Offset(CXv * scale, CYv * scale)
+                    var prev = 0f
+                    var accum = 0f
+                    var done = false
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { pos ->
+                            holding = true
+                            done = false
+                            accum = 0f
+                            prev = kotlin.math.atan2(pos.y - center.y, pos.x - center.x)
+                        },
+                        onDragEnd = {
+                            holding = false
+                            if (!done) scope.launch {
+                                animate(spinAngle, 0f, animationSpec = tween(450, easing = FastOutSlowInEasing)) { v, _ -> spinAngle = v }
+                            }
+                        },
+                        onDragCancel = {
+                            holding = false
+                            if (!done) scope.launch {
+                                animate(spinAngle, 0f, animationSpec = tween(450, easing = FastOutSlowInEasing)) { v, _ -> spinAngle = v }
+                            }
+                        },
+                        onDrag = { change, _ ->
+                            if (done) return@detectDragGesturesAfterLongPress
+                            val ang = kotlin.math.atan2(change.position.y - center.y, change.position.x - center.x)
+                            var d = Math.toDegrees((ang - prev).toDouble()).toFloat()
+                            if (d > 180f) d -= 360f
+                            if (d < -180f) d += 360f
+                            prev = ang
+                            accum += d
+                            spinAngle += d
+                            if (kotlin.math.abs(accum) >= 360f) {
+                                done = true
+                                holding = false
+                                scope.launch {
+                                    // settle the spin to a clean stop, then regenerate
+                                    val target = kotlin.math.ceil(spinAngle / 360f) * 360f
+                                    animate(spinAngle, target, animationSpec = tween(300, easing = FastOutSlowInEasing)) { v, _ -> spinAngle = v }
+                                    spinAngle = 0f
+                                    regen.snapTo(0f)
+                                    regenSeed++
+                                    regen.animateTo(1f, tween(900 + nodes.size * 170, easing = LinearEasing))
+                                }
+                            }
+                        },
+                    )
                 },
         ) {
             if (fx) GoldDust(Modifier.fillMaxSize(), count = 60)
@@ -373,8 +419,14 @@ private fun DialCanvas(
                     }
                     val pts = sorted.map { node ->
                         val s = stars[node.spawn.at.epochSecond] ?: DialStar(0.5f, 1f, 0f, 0.3f, 1f, 0)
-                        Triple(p(Rv * s.frac, node.displayDeg + spin.value), s, node)
+                        Triple(p(Rv * s.frac, node.displayDeg + spinAngle), s, node)
                     }
+
+                    // Whole constellation sits at ~65% so it reads as a backdrop to the content.
+                    drawContext.canvas.saveLayer(
+                        Rect(0f, 0f, size.width, size.height),
+                        Paint().apply { alpha = 0.65f },
+                    )
 
                     // connecting loop: a soft glowing line (no chasing dot), draws on segment
                     // by segment as each star lands, then gently breathes once settled.
@@ -442,6 +494,24 @@ private fun DialCanvas(
                         // white-hot flash on ignite (all variants)
                         if (flash > 0.01f) drawCircle(white.copy(alpha = flash * 0.9f), radius = rad * 0.7f, center = pt)
                     }
+                    drawContext.canvas.restore() // end 65% constellation layer
+                }
+
+                // Spin guide: while holding, a dashed circle + an orbiting hint dot fade in to
+                // show "drag around this circle" (at full opacity, over the dimmed content).
+                if (guideFade > 0.01f) {
+                    val gr = Rv * 0.62f * scale
+                    drawCircle(
+                        BdoColors.goldHi.copy(alpha = 0.45f * guideFade),
+                        radius = gr, center = Offset(cx, cy),
+                        style = Stroke(
+                            width = 1.5f * scale, cap = StrokeCap.Round,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f * scale, 9f * scale)),
+                        ),
+                    )
+                    val od = p(Rv * 0.62f, Math.toDegrees(twinkle.toDouble()).toFloat())
+                    drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f * guideFade), radius = 7f * scale, center = od)
+                    drawCircle(BdoColors.goldHi.copy(alpha = 0.95f * guideFade), radius = 3f * scale, center = od)
                 }
 
                 // NOW marker: a glowing gold arrowhead floating clearly ABOVE the ring with a
@@ -465,7 +535,7 @@ private fun DialCanvas(
                 val isNext = n == next
                 val tileDp = if (isNext) 50.dp else 42.dp
                 val tilePx = with(density) { tileDp.toPx() }
-                val pos = p(Rv, n.displayDeg + spin.value)
+                val pos = p(Rv, n.displayDeg + spinAngle)
                 Box(
                     Modifier
                         .offset { IntOffset((pos.x - tilePx / 2f).roundToInt(), (pos.y - tilePx / 2f).roundToInt()) }
@@ -491,12 +561,16 @@ private fun DialCanvas(
                 }
             }
 
-            // center overlay (next spawn) — constrained to sit within the inner ring
+            // center overlay (next spawn) — dims out during the spin/ignite as part of the
+            // animation (holdFade while dragging × regen ignite), never popping.
             CenterStack(
                 next = next,
                 fx = fx,
                 maxWidth = with(density) { (Rv * 0.55f * 2f * scale).toDp() },
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = hDp * 0.32f),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = hDp * 0.32f)
+                    .alpha(holdFade * regen.value),
                 onOpen = { onSpawnClick(next.spawn) },
             )
             androidx.compose.material3.Text(
