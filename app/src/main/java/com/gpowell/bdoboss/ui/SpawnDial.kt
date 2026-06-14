@@ -1,5 +1,7 @@
 package com.gpowell.bdoboss.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -8,6 +10,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -23,15 +26,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +50,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -177,21 +185,31 @@ private fun DialCanvas(
         0f, 1f, infiniteRepeatable(tween(6000, easing = LinearEasing)), label = "constPulse",
     )
 
-    // Persistent stars: one per boss, seeded by spawn time so a boss KEEPS its star
-    // (position 20–80% out, ±20% size, twinkle offset). Only added/removed bosses change
-    // the constellation; existing stars stay put and the whole thing rotates with the dial.
+    // Persistent stars: one per boss, seeded by spawn time (+ a manual regen seed for the
+    // spin easter egg) so a boss KEEPS its star (35–95% out, varied size, twinkle offset).
+    // The set changes only when a boss comes/goes or the wheel is spun.
+    val scope = rememberCoroutineScope()
+    var regenSeed by remember { mutableIntStateOf(0) }
+    val regen = remember { Animatable(1f) }   // 1 = settled; animates 0→1 to ignite stars
+    val spin = remember { Animatable(0f) }     // boss-wheel spin (easter egg), degrees
     val bossKey = nodes.map { it.spawn.at.epochSecond }.sorted().joinToString(",")
-    val stars = remember(bossKey) {
+    val stars = remember(bossKey, regenSeed) {
         nodes.associate { n ->
-            val r = kotlin.random.Random(n.spawn.at.epochSecond)
+            val r = kotlin.random.Random(n.spawn.at.epochSecond * 73L + regenSeed)
             n.spawn.at.epochSecond to DialStar(
-                frac = 0.20f + r.nextFloat() * 0.60f,
-                size = 0.80f + r.nextFloat() * 0.40f,
+                frac = 0.35f + r.nextFloat() * 0.60f,
+                size = 0.80f + r.nextFloat() * 1.70f,  // min held at 0.8; max raised
                 tw = r.nextFloat() * (2 * Math.PI).toFloat(),
             )
         }
     }
     val measure = remember { androidx.compose.ui.graphics.PathMeasure() }
+
+    // Ignite the constellation whenever the boss set changes OR the wheel is spun.
+    LaunchedEffect(bossKey, regenSeed) {
+        regen.snapTo(0f)
+        regen.animateTo(1f, tween(900 + nodes.size * 170, easing = LinearEasing))
+    }
 
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
         val wPx = with(density) { maxWidth.toPx() }
@@ -199,7 +217,24 @@ private fun DialCanvas(
         val hDp = with(density) { (372f * scale).toDp() }
         fun p(r: Float, deg: Float) = polar(CXv * scale, CYv * scale, r * scale, deg)
 
-        Box(Modifier.fillMaxWidth().height(hDp)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(hDp)
+                // Easter egg: long-press the dial to spin the boss-wheel one revolution,
+                // which regenerates the constellation (stars re-ignite one by one).
+                .pointerInput(Unit) {
+                    detectTapGestures(onLongPress = {
+                        scope.launch {
+                            if (spin.isRunning) return@launch
+                            regenSeed++
+                            spin.snapTo(0f)
+                            spin.animateTo(360f, tween(1300, easing = FastOutSlowInEasing))
+                            spin.snapTo(0f)
+                        }
+                    })
+                },
+        ) {
             if (fx) GoldDust(Modifier.fillMaxSize(), count = 60)
 
             Canvas(Modifier.fillMaxSize()) {
@@ -306,42 +341,83 @@ private fun DialCanvas(
                     style = Stroke(width = 3f * scale, cap = StrokeCap.Round),
                 )
 
-                // ── Constellation: persistent twinkling stars on each boss's spoke, looped
-                // by angular order with a faint line + a pulse of light travelling along it.
+                // ── Constellation: per-boss twinkling stars that IGNITE one-by-one (BDO
+                // enhancement style — slam-in + white flash + shockwave ring + rays), linked
+                // in angular order by a line that draws on as each star lands. Spins with the
+                // wheel. Regenerates (replays the ignite) on boss change or the spin easter egg.
                 if (fx && nodes.size >= 2) {
                     val sorted = nodes.sortedBy { it.displayDeg }
-                    val starPts = sorted.map { n ->
-                        val s = stars[n.spawn.at.epochSecond] ?: DialStar(0.5f, 1f, 0f)
-                        p(Rv * s.frac, n.displayDeg) to (stars[n.spawn.at.epochSecond] ?: DialStar(0.5f, 1f, 0f))
+                    val n = sorted.size
+                    val white = Color(0xFFFFF6DC)
+                    fun eo(x: Float) = 1f - (1f - x) * (1f - x)            // ease-out
+                    // per-star ignite progress along the regen timeline (staggered)
+                    fun rawOf(i: Int): Float {
+                        val start = (i.toFloat() / n) * 0.72f
+                        return ((regen.value - start) / 0.22f).coerceIn(0f, 1f)
                     }
-                    // connecting line (closed loop around the dial)
-                    val path = Path()
-                    starPts.forEachIndexed { i, (pt, _) -> if (i == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y) }
-                    path.close()
-                    drawPath(path, BdoColors.goldHi.copy(alpha = 0.22f), style = Stroke(width = 1.2f * scale, cap = StrokeCap.Round))
-
-                    // pulse of light travelling along the loop
-                    measure.setPath(path, false)
-                    val len = measure.length
-                    if (len > 0f) {
-                        val pos = measure.getPosition(len * constPulse)
-                        drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f), radius = 6f * scale, center = pos)
-                        drawCircle(BdoColors.goldHi, radius = 2.2f * scale, center = pos)
+                    val pts = sorted.map { node ->
+                        val s = stars[node.spawn.at.epochSecond] ?: DialStar(0.5f, 1f, 0f)
+                        Triple(p(Rv * s.frac, node.displayDeg + spin.value), s, node)
                     }
 
-                    // twinkling stars (tinted by boss rarity)
-                    sorted.forEachIndexed { i, n ->
-                        val (pt, s) = starPts[i]
-                        val tint = bossDialTint(n.spawn.bosses.first())
+                    // links draw on, gated by the later-igniting endpoint of each segment
+                    for (i in 0 until n) {
+                        val end = (i + 1) % n
+                        val gate = eo(rawOf(if (end > i) end else i))
+                        if (gate <= 0f) continue
+                        val a0 = pts[i].first
+                        val b0 = pts[end].first
+                        val tip = Offset(a0.x + (b0.x - a0.x) * gate, a0.y + (b0.y - a0.y) * gate)
+                        drawLine(
+                            BdoColors.goldHi.copy(alpha = 0.22f * gate),
+                            a0, tip, strokeWidth = 1.2f * scale, cap = StrokeCap.Round,
+                        )
+                    }
+
+                    // traveling pulse — only once the whole loop has settled
+                    if (regen.value >= 0.999f) {
+                        val path = Path()
+                        pts.forEachIndexed { i, (pt, _, _) -> if (i == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y) }
+                        path.close()
+                        measure.setPath(path, false)
+                        val len = measure.length
+                        if (len > 0f) {
+                            val pos = measure.getPosition(len * constPulse)
+                            drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f), radius = 6f * scale, center = pos)
+                            drawCircle(BdoColors.goldHi, radius = 2.2f * scale, center = pos)
+                        }
+                    }
+
+                    // stars (ignite then twinkle)
+                    pts.forEachIndexed { i, (pt, s, node) ->
+                        val raw = rawOf(i)
+                        if (raw <= 0f) return@forEachIndexed
+                        val tint = bossDialTint(node.spawn.bosses.first())
                         val tf = 0.55f + 0.45f * kotlin.math.sin(twinkle + s.tw)
-                        val rad = 2.4f * scale * s.size * (0.7f + 0.5f * tf)
-                        val a = (0.45f + 0.55f * tf).coerceIn(0f, 1f)
-                        drawCircle(tint.copy(alpha = a * 0.25f), radius = rad * 2.6f, center = pt) // halo
-                        // 4-point sparkle
-                        val ray = rad * 2.4f
-                        drawLine(tint.copy(alpha = a), Offset(pt.x - ray, pt.y), Offset(pt.x + ray, pt.y), strokeWidth = 1f * scale, cap = StrokeCap.Round)
-                        drawLine(tint.copy(alpha = a), Offset(pt.x, pt.y - ray), Offset(pt.x, pt.y + ray), strokeWidth = 1f * scale, cap = StrokeCap.Round)
-                        drawCircle(BdoColors.goldHi.copy(alpha = a), radius = rad, center = pt) // core
+                        val base = 2.4f * scale * s.size * (0.7f + 0.5f * tf)
+                        val slam = 1f + (1f - eo(raw)) * 1.9f         // heavy slam-in (2.9x → 1x)
+                        val rad = base * slam
+                        val flash = kotlin.math.sin(raw * Math.PI.toFloat()) // 0→1→0 over ignite
+                        val a = raw * (0.5f + 0.5f * tf)
+
+                        // shockwave ring expanding out of the star as it lands
+                        if (raw < 1f) {
+                            drawCircle(
+                                tint.copy(alpha = (1f - raw) * 0.6f),
+                                radius = base * (1f + raw * 3.2f), center = pt,
+                                style = Stroke(width = 1.6f * scale),
+                            )
+                        }
+                        // halo
+                        drawCircle(tint.copy(alpha = a * 0.25f), radius = rad * 2.6f, center = pt)
+                        // 4-point rays (boosted during the flash)
+                        val ray = rad * (2.2f + flash * 2.0f)
+                        val rc = white.copy(alpha = (a + flash).coerceIn(0f, 1f))
+                        drawLine(rc, Offset(pt.x - ray, pt.y), Offset(pt.x + ray, pt.y), strokeWidth = 1.1f * scale, cap = StrokeCap.Round)
+                        drawLine(rc, Offset(pt.x, pt.y - ray), Offset(pt.x, pt.y + ray), strokeWidth = 1.1f * scale, cap = StrokeCap.Round)
+                        // core + white-hot flash
+                        drawCircle(BdoColors.goldHi.copy(alpha = a), radius = rad, center = pt)
+                        if (flash > 0.01f) drawCircle(white.copy(alpha = flash * 0.9f), radius = rad * 0.7f, center = pt)
                     }
                 }
 
@@ -361,12 +437,12 @@ private fun DialCanvas(
                 drawPath(arrow, BdoColors.goldHi)
             }
 
-            // ── boss icons (tappable portraits at their time-angle) ──
+            // ── boss icons (tappable portraits at their time-angle, spin with the wheel) ──
             nodes.forEach { n ->
                 val isNext = n == next
                 val tileDp = if (isNext) 50.dp else 42.dp
                 val tilePx = with(density) { tileDp.toPx() }
-                val pos = p(Rv, n.displayDeg)
+                val pos = p(Rv, n.displayDeg + spin.value)
                 Box(
                     Modifier
                         .offset { IntOffset((pos.x - tilePx / 2f).roundToInt(), (pos.y - tilePx / 2f).roundToInt()) }
@@ -392,11 +468,12 @@ private fun DialCanvas(
                 }
             }
 
-            // center overlay (next spawn)
+            // center overlay (next spawn) — constrained to sit within the inner ring
             CenterStack(
                 next = next,
                 fx = fx,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = hDp * 0.30f),
+                maxWidth = with(density) { (Rv * 0.55f * 2f * scale).toDp() },
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = hDp * 0.32f),
                 onOpen = { onSpawnClick(next.spawn) },
             )
             androidx.compose.material3.Text(
@@ -413,6 +490,7 @@ private fun DialCanvas(
 private fun CenterStack(
     next: DialNode,
     fx: Boolean,
+    maxWidth: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
     onOpen: () -> Unit,
 ) {
@@ -423,35 +501,40 @@ private fun CenterStack(
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.clip(RoundedCornerShape(12.dp)).clickable { onOpen() }.padding(8.dp),
+        modifier = modifier
+            .widthIn(max = maxWidth)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onOpen() }
+            .padding(6.dp),
     ) {
         androidx.compose.material3.Text(
             (if (imminent) "Spawning now" else "Next spawn").uppercase(),
-            style = BdoType.overline.copy(fontSize = 9.sp),
+            style = BdoType.overline.copy(fontSize = 8.sp),
             color = if (imminent) BdoColors.live2 else BdoColors.gold,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         androidx.compose.material3.Text(
             next.spawn.bosses.joinToString(" + "),
-            style = BdoType.display.copy(fontSize = if (co) 17.sp else 22.sp),
+            style = BdoType.display.copy(fontSize = if (co) 15.sp else 19.sp),
             color = BdoColors.onBg,
             maxLines = 2,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         androidx.compose.material3.Text(
             text = dialCountdown(next.ms),
             style = BdoType.hero.copy(
-                fontSize = if (imminent) 40.sp else 34.sp,
+                fontSize = if (imminent) 34.sp else 29.sp,
                 brush = if (imminent) null else shimmerGoldBrush(fx),
             ),
             color = if (imminent) BdoColors.live2 else BdoColors.goldHi,
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
         androidx.compose.material3.Text(
             fmt.format(local) + if (co) " · Co-spawn" else "",
-            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
             color = BdoColors.onFaint,
+            maxLines = 1,
         )
     }
 }
