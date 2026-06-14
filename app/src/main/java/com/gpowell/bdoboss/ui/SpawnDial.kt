@@ -74,6 +74,9 @@ private const val WINDOW_MS = 24L * 3600L * 1000L
 
 private data class DialNode(val spawn: Spawn, val ms: Long, val deg: Float, val displayDeg: Float = deg)
 
+/** A persistent constellation star for one boss: fraction along its spoke, size, twinkle offset. */
+private class DialStar(val frac: Float, val size: Float, val tw: Float)
+
 /**
  * Spread bead angles so spawns close in time don't stack. Keeps the true time order but
  * enforces a minimum visual gap (the dial is only ~14°/hour, so bosses an hour or two
@@ -166,9 +169,29 @@ private fun DialCanvas(
     val flourish by infinite.animateFloat(
         0f, 360f, infiniteRepeatable(tween(140_000, easing = LinearEasing)), label = "flourish",
     )
-    val threadPhase by infinite.animateFloat(
-        0f, 18f, infiniteRepeatable(tween(4000, easing = LinearEasing)), label = "thread",
+    // Constellation: a star twinkle phase + a pulse that travels along the connecting line.
+    val twinkle by infinite.animateFloat(
+        0f, (2 * Math.PI).toFloat(), infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "twinkle",
     )
+    val constPulse by infinite.animateFloat(
+        0f, 1f, infiniteRepeatable(tween(6000, easing = LinearEasing)), label = "constPulse",
+    )
+
+    // Persistent stars: one per boss, seeded by spawn time so a boss KEEPS its star
+    // (position 20–80% out, ±20% size, twinkle offset). Only added/removed bosses change
+    // the constellation; existing stars stay put and the whole thing rotates with the dial.
+    val bossKey = nodes.map { it.spawn.at.epochSecond }.sorted().joinToString(",")
+    val stars = remember(bossKey) {
+        nodes.associate { n ->
+            val r = kotlin.random.Random(n.spawn.at.epochSecond)
+            n.spawn.at.epochSecond to DialStar(
+                frac = 0.20f + r.nextFloat() * 0.60f,
+                size = 0.80f + r.nextFloat() * 0.40f,
+                tw = r.nextFloat() * (2 * Math.PI).toFloat(),
+            )
+        }
+    }
+    val measure = remember { androidx.compose.ui.graphics.PathMeasure() }
 
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
         val wPx = with(density) { maxWidth.toPx() }
@@ -283,21 +306,43 @@ private fun DialCanvas(
                     style = Stroke(width = 3f * scale, cap = StrokeCap.Round),
                 )
 
-                // thread of fate
-                if (fx && nodes.size > 1) {
-                    val sorted = nodes.sortedBy { it.ms }
-                    val thread = Path()
-                    sorted.forEachIndexed { i, n ->
-                        val pt = p(Rv, n.displayDeg)
-                        if (i == 0) thread.moveTo(pt.x, pt.y) else thread.lineTo(pt.x, pt.y)
+                // ── Constellation: persistent twinkling stars on each boss's spoke, looped
+                // by angular order with a faint line + a pulse of light travelling along it.
+                if (fx && nodes.size >= 2) {
+                    val sorted = nodes.sortedBy { it.displayDeg }
+                    val starPts = sorted.map { n ->
+                        val s = stars[n.spawn.at.epochSecond] ?: DialStar(0.5f, 1f, 0f)
+                        p(Rv * s.frac, n.displayDeg) to (stars[n.spawn.at.epochSecond] ?: DialStar(0.5f, 1f, 0f))
                     }
-                    drawPath(
-                        thread, BdoColors.gold.copy(alpha = 0.34f),
-                        style = Stroke(
-                            width = 1f * scale, cap = StrokeCap.Round,
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(2f * scale, 7f * scale), -threadPhase * scale),
-                        ),
-                    )
+                    // connecting line (closed loop around the dial)
+                    val path = Path()
+                    starPts.forEachIndexed { i, (pt, _) -> if (i == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y) }
+                    path.close()
+                    drawPath(path, BdoColors.goldHi.copy(alpha = 0.22f), style = Stroke(width = 1.2f * scale, cap = StrokeCap.Round))
+
+                    // pulse of light travelling along the loop
+                    measure.setPath(path, false)
+                    val len = measure.length
+                    if (len > 0f) {
+                        val pos = measure.getPosition(len * constPulse)
+                        drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f), radius = 6f * scale, center = pos)
+                        drawCircle(BdoColors.goldHi, radius = 2.2f * scale, center = pos)
+                    }
+
+                    // twinkling stars (tinted by boss rarity)
+                    sorted.forEachIndexed { i, n ->
+                        val (pt, s) = starPts[i]
+                        val tint = bossDialTint(n.spawn.bosses.first())
+                        val tf = 0.55f + 0.45f * kotlin.math.sin(twinkle + s.tw)
+                        val rad = 2.4f * scale * s.size * (0.7f + 0.5f * tf)
+                        val a = (0.45f + 0.55f * tf).coerceIn(0f, 1f)
+                        drawCircle(tint.copy(alpha = a * 0.25f), radius = rad * 2.6f, center = pt) // halo
+                        // 4-point sparkle
+                        val ray = rad * 2.4f
+                        drawLine(tint.copy(alpha = a), Offset(pt.x - ray, pt.y), Offset(pt.x + ray, pt.y), strokeWidth = 1f * scale, cap = StrokeCap.Round)
+                        drawLine(tint.copy(alpha = a), Offset(pt.x, pt.y - ray), Offset(pt.x, pt.y + ray), strokeWidth = 1f * scale, cap = StrokeCap.Round)
+                        drawCircle(BdoColors.goldHi.copy(alpha = a), radius = rad, center = pt) // core
+                    }
                 }
 
                 // NOW marker: a glowing gold arrowhead sitting ABOVE the ring, pointing down
