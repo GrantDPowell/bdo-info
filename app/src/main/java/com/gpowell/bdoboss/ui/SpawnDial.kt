@@ -210,9 +210,11 @@ private fun DialCanvas(
     var spinAngle by remember { mutableFloatStateOf(0f) }  // boss-wheel rotation (drag), degrees
     var holding by remember { mutableStateOf(false) }      // true while dragging the spin gesture
     var dragProgress by remember { mutableFloatStateOf(0f) } // 0..1 fraction of a revolution dragged
-    // Center text dims out while holding / during the ignite, and fades back in — never pops.
-    val holdFade by animateFloatAsState(if (holding) 0f else 1f, tween(350), label = "holdFade")
     val guideFade by animateFloatAsState(if (holding) 1f else 0f, tween(300), label = "guideFade")
+    // Center text visibility — explicitly controlled so it stays fully invisible through the
+    // entire ignite (and the whole spin gesture) and only phases in once the last star lands.
+    val textAlpha = remember { Animatable(1f) }
+    val igniteMs = 900 + nodes.size * 170
     val bossKey = nodes.map { it.spawn.at.epochSecond }.sorted().joinToString(",")
     val stars = remember(bossKey, regenSeed) {
         nodes.associate { n ->
@@ -227,11 +229,13 @@ private fun DialCanvas(
             )
         }
     }
-    // Natural ignite: when the boss set changes, replay the star ignite in place (no spin).
-    // The spin easter egg drives its own ignite AFTER the spin stops (see long-press handler).
+    // Natural ignite (boss change / tab in-out): replay the star ignite with the text hidden
+    // the whole time, then phase the text in once every star has rendered.
     LaunchedEffect(bossKey) {
+        textAlpha.snapTo(0f)
         regen.snapTo(0f)
-        regen.animateTo(1f, tween(900 + nodes.size * 170, easing = LinearEasing))
+        regen.animateTo(1f, tween(igniteMs, easing = LinearEasing))
+        textAlpha.animateTo(1f, tween(450))
     }
 
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
@@ -251,9 +255,8 @@ private fun DialCanvas(
                     val center = Offset(CXv * scale, CYv * scale)
                     var prev = 0f
                     var accum = 0f
-                    val igniteMs = 900 + nodes.size * 170
                     // On release: rotate smoothly back to 0, then (if dragged ≥30% of a turn)
-                    // run the standard constellation rebuild.
+                    // run the standard rebuild. Text stays hidden the whole time, phases in last.
                     fun release() {
                         holding = false
                         val far = kotlin.math.abs(accum) >= 108f   // ≥ 30% of a revolution
@@ -265,6 +268,7 @@ private fun DialCanvas(
                                 regenSeed++
                                 regen.animateTo(1f, tween(igniteMs, easing = LinearEasing))
                             }
+                            textAlpha.animateTo(1f, tween(450))
                         }
                     }
                     detectDragGesturesAfterLongPress(
@@ -272,6 +276,7 @@ private fun DialCanvas(
                             holding = true
                             accum = 0f
                             dragProgress = 0f
+                            scope.launch { textAlpha.animateTo(0f, tween(220)) }
                             prev = kotlin.math.atan2(pos.y - center.y, pos.x - center.x)
                         },
                         onDragEnd = { release() },
@@ -559,20 +564,16 @@ private fun DialCanvas(
                 }
             }
 
-            // center overlay (next spawn). Fades in across the ignite, reaching full exactly
-            // when the LAST star has rendered; dims out (never pops) while dragging the spin.
-            val lastStarDone = if (nodes.size > 0) {
-                0.72f * (nodes.size - 1) / nodes.size + 0.22f
-            } else 1f
-            val textIn = (regen.value / lastStarDone).coerceIn(0f, 1f)
+            // center overlay (next spawn). Hidden through the whole ignite/spin, phases in only
+            // after the last star lands (textAlpha is driven explicitly).
             CenterStack(
                 next = next,
                 fx = fx,
                 maxWidth = with(density) { (Rv * 0.55f * 2f * scale).toDp() },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = hDp * 0.43f)
-                    .alpha(holdFade * textIn),
+                    .padding(top = hDp * 0.375f)
+                    .alpha(textAlpha.value),
                 onOpen = { onSpawnClick(next.spawn) },
             )
             androidx.compose.material3.Text(
