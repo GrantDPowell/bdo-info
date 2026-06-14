@@ -13,7 +13,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -210,6 +209,7 @@ private fun DialCanvas(
     val regen = remember { Animatable(1f) }       // 1 = settled; animates 0→1 to ignite stars
     var spinAngle by remember { mutableFloatStateOf(0f) }  // boss-wheel rotation (drag), degrees
     var holding by remember { mutableStateOf(false) }      // true while dragging the spin gesture
+    var dragProgress by remember { mutableFloatStateOf(0f) } // 0..1 fraction of a revolution dragged
     // Center text dims out while holding / during the ignite, and fades back in — never pops.
     val holdFade by animateFloatAsState(if (holding) 0f else 1f, tween(350), label = "holdFade")
     val guideFade by animateFloatAsState(if (holding) 1f else 0f, tween(300), label = "guideFade")
@@ -251,28 +251,32 @@ private fun DialCanvas(
                     val center = Offset(CXv * scale, CYv * scale)
                     var prev = 0f
                     var accum = 0f
-                    var done = false
+                    val igniteMs = 900 + nodes.size * 170
+                    // On release: rotate smoothly back to 0, then (if dragged ≥30% of a turn)
+                    // run the standard constellation rebuild.
+                    fun release() {
+                        holding = false
+                        val far = kotlin.math.abs(accum) >= 108f   // ≥ 30% of a revolution
+                        dragProgress = 0f
+                        scope.launch {
+                            animate(spinAngle, 0f, animationSpec = tween(500, easing = FastOutSlowInEasing)) { v, _ -> spinAngle = v }
+                            if (far) {
+                                regen.snapTo(0f)
+                                regenSeed++
+                                regen.animateTo(1f, tween(igniteMs, easing = LinearEasing))
+                            }
+                        }
+                    }
                     detectDragGesturesAfterLongPress(
                         onDragStart = { pos ->
                             holding = true
-                            done = false
                             accum = 0f
+                            dragProgress = 0f
                             prev = kotlin.math.atan2(pos.y - center.y, pos.x - center.x)
                         },
-                        onDragEnd = {
-                            holding = false
-                            if (!done) scope.launch {
-                                animate(spinAngle, 0f, animationSpec = tween(450, easing = FastOutSlowInEasing)) { v, _ -> spinAngle = v }
-                            }
-                        },
-                        onDragCancel = {
-                            holding = false
-                            if (!done) scope.launch {
-                                animate(spinAngle, 0f, animationSpec = tween(450, easing = FastOutSlowInEasing)) { v, _ -> spinAngle = v }
-                            }
-                        },
+                        onDragEnd = { release() },
+                        onDragCancel = { release() },
                         onDrag = { change, _ ->
-                            if (done) return@detectDragGesturesAfterLongPress
                             val ang = kotlin.math.atan2(change.position.y - center.y, change.position.x - center.x)
                             var d = Math.toDegrees((ang - prev).toDouble()).toFloat()
                             if (d > 180f) d -= 360f
@@ -280,19 +284,7 @@ private fun DialCanvas(
                             prev = ang
                             accum += d
                             spinAngle += d
-                            if (kotlin.math.abs(accum) >= 360f) {
-                                done = true
-                                holding = false
-                                scope.launch {
-                                    // settle the spin to a clean stop, then regenerate
-                                    val target = kotlin.math.ceil(spinAngle / 360f) * 360f
-                                    animate(spinAngle, target, animationSpec = tween(300, easing = FastOutSlowInEasing)) { v, _ -> spinAngle = v }
-                                    spinAngle = 0f
-                                    regen.snapTo(0f)
-                                    regenSeed++
-                                    regen.animateTo(1f, tween(900 + nodes.size * 170, easing = LinearEasing))
-                                }
-                            }
+                            dragProgress = (kotlin.math.abs(accum) / 360f).coerceIn(0f, 1f)
                         },
                     )
                 },
@@ -422,10 +414,16 @@ private fun DialCanvas(
                         Triple(p(Rv * s.frac, node.displayDeg + spinAngle), s, node)
                     }
 
-                    // Whole constellation sits at ~65% so it reads as a backdrop to the content.
+                    // Constellation opacity: full (100%) during the ignite animation, settling
+                    // to 55% as a backdrop; brighter as you drag the spin gesture.
+                    val layerAlpha = if (holding) {
+                        0.55f + 0.45f * dragProgress
+                    } else {
+                        0.55f + 0.45f * (1f - regen.value)
+                    }
                     drawContext.canvas.saveLayer(
                         Rect(0f, 0f, size.width, size.height),
-                        Paint().apply { alpha = 0.65f },
+                        Paint().apply { alpha = layerAlpha },
                     )
 
                     // connecting loop: a soft glowing line (no chasing dot), draws on segment
@@ -561,16 +559,20 @@ private fun DialCanvas(
                 }
             }
 
-            // center overlay (next spawn) — dims out during the spin/ignite as part of the
-            // animation (holdFade while dragging × regen ignite), never popping.
+            // center overlay (next spawn). Fades in across the ignite, reaching full exactly
+            // when the LAST star has rendered; dims out (never pops) while dragging the spin.
+            val lastStarDone = if (nodes.size > 0) {
+                0.72f * (nodes.size - 1) / nodes.size + 0.22f
+            } else 1f
+            val textIn = (regen.value / lastStarDone).coerceIn(0f, 1f)
             CenterStack(
                 next = next,
                 fx = fx,
                 maxWidth = with(density) { (Rv * 0.55f * 2f * scale).toDp() },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = hDp * 0.32f)
-                    .alpha(holdFade * regen.value),
+                    .padding(top = hDp * 0.43f)
+                    .alpha(holdFade * textIn),
                 onOpen = { onSpawnClick(next.spawn) },
             )
             androidx.compose.material3.Text(
