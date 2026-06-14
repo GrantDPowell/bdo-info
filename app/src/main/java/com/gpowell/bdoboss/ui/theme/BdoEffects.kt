@@ -1,6 +1,7 @@
 package com.gpowell.bdoboss.ui.theme
 
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -85,13 +86,22 @@ fun GoldDust(modifier: Modifier = Modifier, count: Int = 34) {
 }
 
 // ── E. Specular shimmer brush for the big countdown ────────────────────────────
-/** A gold→near-white→gold band that rakes across glyphs every ~3.4s. Calm = solid gold. */
+/**
+ * A gold→near-white→gold band that rakes across glyphs. Uses RepeatMode.Reverse (ping-pong)
+ * so the highlight sweeps smoothly back and forth — a plain looping phase would snap back
+ * each cycle and look choppy.
+ */
 @Composable
 fun shimmerGoldBrush(enabled: Boolean): Brush {
     if (!enabled) return SolidColor(BdoColors.goldHi)
     val t = rememberInfiniteTransition(label = "shimmer")
     val phase by t.animateFloat(
-        0f, 1f, infiniteRepeatable(tween(3400, easing = LinearEasing)), label = "phase",
+        0f, 1f,
+        infiniteRepeatable(
+            tween(2600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            RepeatMode.Reverse,
+        ),
+        label = "phase",
     )
     val x = phase * 620f
     return Brush.linearGradient(

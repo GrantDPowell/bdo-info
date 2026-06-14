@@ -35,12 +35,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -193,10 +195,13 @@ private fun DialCanvas(
     val flourish by infinite.animateFloat(
         0f, 360f, infiniteRepeatable(tween(140_000, easing = LinearEasing)), label = "flourish",
     )
-    // Constellation: a base twinkle phase + a slow breathe for the line's glow.
-    val twinkle by infinite.animateFloat(
-        0f, (2 * Math.PI).toFloat(), infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "twinkle",
-    )
+    // Twinkle phase from a MONOTONIC frame clock (seconds). Using an ever-increasing value
+    // (vs a 0→2π loop) keeps sin() continuous when multiplied by each star's speed, so the
+    // twinkle never jumps at a wrap.
+    val twPhase = remember { mutableDoubleStateOf(0.0) }
+    LaunchedEffect(Unit) {
+        while (true) withFrameNanos { now -> twPhase.doubleValue = now / 1_000_000_000.0 }
+    }
     val lineGlow by infinite.animateFloat(
         0.45f, 1f, infiniteRepeatable(tween(2800, easing = LinearEasing), RepeatMode.Reverse), label = "lineGlow",
     )
@@ -215,6 +220,8 @@ private fun DialCanvas(
     // entire ignite (and the whole spin gesture) and only phases in once the last star lands.
     val textAlpha = remember { Animatable(1f) }
     val igniteMs = 900 + nodes.size * 170
+    // regen value at which the LAST star has finished landing (its ignite window ends).
+    val lastStarFrac = if (nodes.size > 0) 0.72f * (nodes.size - 1) / nodes.size + 0.22f else 0.5f
     val bossKey = nodes.map { it.spawn.at.epochSecond }.sorted().joinToString(",")
     val stars = remember(bossKey, regenSeed) {
         nodes.associate { n ->
@@ -234,8 +241,9 @@ private fun DialCanvas(
     LaunchedEffect(bossKey) {
         textAlpha.snapTo(0f)
         regen.snapTo(0f)
-        regen.animateTo(1f, tween(igniteMs, easing = LinearEasing))
-        textAlpha.animateTo(1f, tween(450))
+        scope.launch { regen.animateTo(1f, tween(igniteMs, easing = LinearEasing)) }
+        kotlinx.coroutines.delay((lastStarFrac * igniteMs).toLong())
+        textAlpha.animateTo(1f, tween(300))
     }
 
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
@@ -266,9 +274,10 @@ private fun DialCanvas(
                             if (far) {
                                 regen.snapTo(0f)
                                 regenSeed++
-                                regen.animateTo(1f, tween(igniteMs, easing = LinearEasing))
+                                scope.launch { regen.animateTo(1f, tween(igniteMs, easing = LinearEasing)) }
+                                kotlinx.coroutines.delay((lastStarFrac * igniteMs).toLong())
                             }
-                            textAlpha.animateTo(1f, tween(450))
+                            textAlpha.animateTo(1f, tween(300))
                         }
                     }
                     detectDragGesturesAfterLongPress(
@@ -451,7 +460,7 @@ private fun DialCanvas(
                         if (raw <= 0f) return@forEachIndexed
                         val tint = bossDialTint(node.spawn.bosses.first())
                         // independent twinkle: amplitude/speed per star (some big+calm, some small+bright)
-                        val osc = (kotlin.math.sin(twinkle * s.twSpeed + s.tw) + 1f) / 2f
+                        val osc = ((kotlin.math.sin(twPhase.doubleValue * s.twSpeed + s.tw) + 1.0) / 2.0).toFloat()
                         val tw = (1f - s.twAmp) + s.twAmp * osc
                         val base = 2.4f * scale * s.size * tw
                         val slam = 1f + (1f - eo(raw)) * 1.9f          // heavy slam-in (2.9x → 1x)
@@ -512,7 +521,7 @@ private fun DialCanvas(
                             pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f * scale, 9f * scale)),
                         ),
                     )
-                    val od = p(Rv * 0.62f, Math.toDegrees(twinkle.toDouble()).toFloat())
+                    val od = p(Rv * 0.62f, ((twPhase.doubleValue * 80.0) % 360.0).toFloat())
                     drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f * guideFade), radius = 7f * scale, center = od)
                     drawCircle(BdoColors.goldHi.copy(alpha = 0.95f * guideFade), radius = 3f * scale, center = od)
                 }
