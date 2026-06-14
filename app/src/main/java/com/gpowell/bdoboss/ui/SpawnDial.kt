@@ -82,8 +82,18 @@ private const val WINDOW_MS = 24L * 3600L * 1000L
 
 private data class DialNode(val spawn: Spawn, val ms: Long, val deg: Float, val displayDeg: Float = deg)
 
-/** A persistent constellation star for one boss: fraction along its spoke, size, twinkle offset. */
-private class DialStar(val frac: Float, val size: Float, val tw: Float)
+/**
+ * A persistent constellation star for one boss. Size and twinkle are INDEPENDENTLY random,
+ * so you get big-but-calm stars and small-but-bright-twinkle stars. `variant` picks a shape.
+ */
+private class DialStar(
+    val frac: Float,
+    val size: Float,
+    val tw: Float,        // twinkle phase offset
+    val twAmp: Float,     // twinkle amplitude (how much it pulses)
+    val twSpeed: Float,   // twinkle speed multiplier
+    val variant: Int,     // 0 = 4-point sparkle, 1 = soft glow orb, 2 = 6-point
+)
 
 /**
  * Spread bead angles so spawns close in time don't stack. Keeps the true time order but
@@ -177,12 +187,12 @@ private fun DialCanvas(
     val flourish by infinite.animateFloat(
         0f, 360f, infiniteRepeatable(tween(140_000, easing = LinearEasing)), label = "flourish",
     )
-    // Constellation: a star twinkle phase + a pulse that travels along the connecting line.
+    // Constellation: a base twinkle phase + a slow breathe for the line's glow.
     val twinkle by infinite.animateFloat(
         0f, (2 * Math.PI).toFloat(), infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "twinkle",
     )
-    val constPulse by infinite.animateFloat(
-        0f, 1f, infiniteRepeatable(tween(6000, easing = LinearEasing)), label = "constPulse",
+    val lineGlow by infinite.animateFloat(
+        0.45f, 1f, infiniteRepeatable(tween(2800, easing = LinearEasing), RepeatMode.Reverse), label = "lineGlow",
     )
 
     // Persistent stars: one per boss, seeded by spawn time (+ a manual regen seed for the
@@ -197,14 +207,15 @@ private fun DialCanvas(
         nodes.associate { n ->
             val r = kotlin.random.Random(n.spawn.at.epochSecond * 73L + regenSeed)
             n.spawn.at.epochSecond to DialStar(
-                frac = 0.35f + r.nextFloat() * 0.60f,
-                size = 0.80f + r.nextFloat() * 1.70f,  // min held at 0.8; max raised
+                frac = 0.35f + r.nextFloat() * 0.50f,   // 35–85% so stars clear the boss icons
+                size = 0.80f + r.nextFloat() * 1.70f,   // min held at 0.8; max raised
                 tw = r.nextFloat() * (2 * Math.PI).toFloat(),
+                twAmp = 0.18f + r.nextFloat() * 0.42f,  // independent twinkle strength
+                twSpeed = 0.6f + r.nextFloat() * 1.1f,  // independent twinkle speed
+                variant = r.nextInt(3),
             )
         }
     }
-    val measure = remember { androidx.compose.ui.graphics.PathMeasure() }
-
     // Ignite the constellation whenever the boss set changes OR the wheel is spun.
     LaunchedEffect(bossKey, regenSeed) {
         regen.snapTo(0f)
@@ -356,11 +367,12 @@ private fun DialCanvas(
                         return ((regen.value - start) / 0.22f).coerceIn(0f, 1f)
                     }
                     val pts = sorted.map { node ->
-                        val s = stars[node.spawn.at.epochSecond] ?: DialStar(0.5f, 1f, 0f)
+                        val s = stars[node.spawn.at.epochSecond] ?: DialStar(0.5f, 1f, 0f, 0.3f, 1f, 0)
                         Triple(p(Rv * s.frac, node.displayDeg + spin.value), s, node)
                     }
 
-                    // links draw on, gated by the later-igniting endpoint of each segment
+                    // connecting loop: a soft glowing line (no chasing dot), draws on segment
+                    // by segment as each star lands, then gently breathes once settled.
                     for (i in 0 until n) {
                         val end = (i + 1) % n
                         val gate = eo(rawOf(if (end > i) end else i))
@@ -368,39 +380,26 @@ private fun DialCanvas(
                         val a0 = pts[i].first
                         val b0 = pts[end].first
                         val tip = Offset(a0.x + (b0.x - a0.x) * gate, a0.y + (b0.y - a0.y) * gate)
-                        drawLine(
-                            BdoColors.goldHi.copy(alpha = 0.22f * gate),
-                            a0, tip, strokeWidth = 1.2f * scale, cap = StrokeCap.Round,
-                        )
+                        val breathe = if (regen.value >= 0.999f) lineGlow else 1f
+                        drawLine(BdoColors.goldGlow.copy(alpha = 0.30f * gate * breathe), a0, tip, strokeWidth = 5f * scale, cap = StrokeCap.Round)
+                        drawLine(BdoColors.goldHi.copy(alpha = 0.55f * gate * breathe), a0, tip, strokeWidth = 1.3f * scale, cap = StrokeCap.Round)
                     }
 
-                    // traveling pulse — only once the whole loop has settled
-                    if (regen.value >= 0.999f) {
-                        val path = Path()
-                        pts.forEachIndexed { i, (pt, _, _) -> if (i == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y) }
-                        path.close()
-                        measure.setPath(path, false)
-                        val len = measure.length
-                        if (len > 0f) {
-                            val pos = measure.getPosition(len * constPulse)
-                            drawCircle(BdoColors.goldGlow.copy(alpha = 0.5f), radius = 6f * scale, center = pos)
-                            drawCircle(BdoColors.goldHi, radius = 2.2f * scale, center = pos)
-                        }
-                    }
-
-                    // stars (ignite then twinkle)
+                    // stars (ignite, then twinkle — size & twinkle are independently random)
                     pts.forEachIndexed { i, (pt, s, node) ->
                         val raw = rawOf(i)
                         if (raw <= 0f) return@forEachIndexed
                         val tint = bossDialTint(node.spawn.bosses.first())
-                        val tf = 0.55f + 0.45f * kotlin.math.sin(twinkle + s.tw)
-                        val base = 2.4f * scale * s.size * (0.7f + 0.5f * tf)
-                        val slam = 1f + (1f - eo(raw)) * 1.9f         // heavy slam-in (2.9x → 1x)
+                        // independent twinkle: amplitude/speed per star (some big+calm, some small+bright)
+                        val osc = (kotlin.math.sin(twinkle * s.twSpeed + s.tw) + 1f) / 2f
+                        val tw = (1f - s.twAmp) + s.twAmp * osc
+                        val base = 2.4f * scale * s.size * tw
+                        val slam = 1f + (1f - eo(raw)) * 1.9f          // heavy slam-in (2.9x → 1x)
                         val rad = base * slam
                         val flash = kotlin.math.sin(raw * Math.PI.toFloat()) // 0→1→0 over ignite
-                        val a = raw * (0.5f + 0.5f * tf)
+                        val a = (raw * (0.55f + 0.45f * osc)).coerceIn(0f, 1f)
 
-                        // shockwave ring expanding out of the star as it lands
+                        // shockwave ring expanding out as it lands
                         if (raw < 1f) {
                             drawCircle(
                                 tint.copy(alpha = (1f - raw) * 0.6f),
@@ -408,15 +407,34 @@ private fun DialCanvas(
                                 style = Stroke(width = 1.6f * scale),
                             )
                         }
-                        // halo
-                        drawCircle(tint.copy(alpha = a * 0.25f), radius = rad * 2.6f, center = pt)
-                        // 4-point rays (boosted during the flash)
-                        val ray = rad * (2.2f + flash * 2.0f)
+                        // halo (always)
+                        drawCircle(tint.copy(alpha = a * 0.28f), radius = rad * 2.6f, center = pt)
                         val rc = white.copy(alpha = (a + flash).coerceIn(0f, 1f))
-                        drawLine(rc, Offset(pt.x - ray, pt.y), Offset(pt.x + ray, pt.y), strokeWidth = 1.1f * scale, cap = StrokeCap.Round)
-                        drawLine(rc, Offset(pt.x, pt.y - ray), Offset(pt.x, pt.y + ray), strokeWidth = 1.1f * scale, cap = StrokeCap.Round)
-                        // core + white-hot flash
-                        drawCircle(BdoColors.goldHi.copy(alpha = a), radius = rad, center = pt)
+                        when (s.variant) {
+                            1 -> {
+                                // soft glow orb — no rays, just a warm bloom + core
+                                drawCircle(tint.copy(alpha = a * 0.5f), radius = rad * 1.7f, center = pt)
+                                drawCircle(BdoColors.goldHi.copy(alpha = a), radius = rad, center = pt)
+                            }
+                            2 -> {
+                                // 6-point sparkle
+                                val ray = rad * (2.0f + flash * 2.0f)
+                                for (k in 0 until 3) {
+                                    val ang = (k / 3f) * Math.PI.toFloat()
+                                    val dx = kotlin.math.cos(ang) * ray; val dy = kotlin.math.sin(ang) * ray
+                                    drawLine(rc, Offset(pt.x - dx, pt.y - dy), Offset(pt.x + dx, pt.y + dy), strokeWidth = 1f * scale, cap = StrokeCap.Round)
+                                }
+                                drawCircle(BdoColors.goldHi.copy(alpha = a), radius = rad * 0.9f, center = pt)
+                            }
+                            else -> {
+                                // 4-point sparkle (rays boosted during the flash)
+                                val ray = rad * (2.2f + flash * 2.0f)
+                                drawLine(rc, Offset(pt.x - ray, pt.y), Offset(pt.x + ray, pt.y), strokeWidth = 1.1f * scale, cap = StrokeCap.Round)
+                                drawLine(rc, Offset(pt.x, pt.y - ray), Offset(pt.x, pt.y + ray), strokeWidth = 1.1f * scale, cap = StrokeCap.Round)
+                                drawCircle(BdoColors.goldHi.copy(alpha = a), radius = rad, center = pt)
+                            }
+                        }
+                        // white-hot flash on ignite (all variants)
                         if (flash > 0.01f) drawCircle(white.copy(alpha = flash * 0.9f), radius = rad * 0.7f, center = pt)
                     }
                 }
@@ -523,8 +541,11 @@ private fun CenterStack(
         Spacer(Modifier.height(6.dp))
         androidx.compose.material3.Text(
             text = dialCountdown(next.ms),
-            style = BdoType.hero.copy(
-                fontSize = if (imminent) 34.sp else 29.sp,
+            // Same engraved face as the boss names (Marcellus), bold.
+            style = BdoType.display.copy(
+                fontSize = if (imminent) 36.sp else 30.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                letterSpacing = 1.sp,
                 brush = if (imminent) null else shimmerGoldBrush(fx),
             ),
             color = if (imminent) BdoColors.live2 else BdoColors.goldHi,
