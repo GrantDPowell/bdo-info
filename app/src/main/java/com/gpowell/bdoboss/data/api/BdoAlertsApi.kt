@@ -116,7 +116,7 @@ class BdoAlertsApi(
             if (limit != null) put("limit", limit.toString())
         }
         return getRaw("/api/news", params).parse(NewsResponse.serializer()).map { resp ->
-            resp.news.ifEmpty { resp.articles.ifEmpty { resp.data } }
+            resp.updates
         }
     }
 
@@ -135,7 +135,7 @@ class BdoAlertsApi(
     suspend fun coupons(): ApiResult<List<Coupon>> {
         val raw = getRaw("/api/coupons")
         return raw.parse(CouponsResponse.serializer()).map { resp ->
-            resp.coupons.ifEmpty { resp.data }
+            resp.coupons.filterNot { it.isExpired }
         }
     }
 
@@ -176,7 +176,13 @@ class BdoAlertsApi(
     suspend fun playerSearch(region: String, query: String): ApiResult<List<PlayerSearchResult>> =
         getRaw("/api/player/search/$region", mapOf("query" to query))
             .parse(PlayerSearchResponse.serializer())
-            .map { it.results.ifEmpty { it.players.ifEmpty { it.data } } }
+            .map { it.results }
+
+    /** GET /api/guild/search/{region}?query= — typed guild search. */
+    suspend fun guildSearchTyped(region: String, query: String): ApiResult<List<GuildSearchResult>> =
+        getRaw("/api/guild/search/$region", mapOf("query" to query))
+            .parse(GuildSearchResponse.serializer())
+            .map { it.results }
 
     /**
      * GET /api/player/{region}/{family_name}?force_refresh={bool}

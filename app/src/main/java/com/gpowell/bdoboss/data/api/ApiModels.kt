@@ -3,101 +3,144 @@ package com.gpowell.bdoboss.data.api
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+// =============================================================================
+// Player profile  (GET /api/player/{region}/{family_name})
+// Real shape (observed 2026-06-23) — note it differs from the doc example:
+//   max_gear_score (not gear_score), character_name/character_class,
+//   life_skills is an ARRAY of objects (not a map), guild is nullable.
+// =============================================================================
+
 @Serializable
 data class PlayerCharacter(
-    val name: String = "",
-    @SerialName("class") val className: String = "",
+    @SerialName("character_name") val name: String = "",
+    @SerialName("character_class") val className: String = "",
     val level: Int = 0,
     @SerialName("is_main") val isMain: Boolean = false,
 )
 
 @Serializable
+data class LifeSkill(
+    @SerialName("skill_name") val skill: String = "",
+    @SerialName("level_rank") val rank: String = "",
+    @SerialName("level_num") val levelNum: Int = 0,
+    val mastery: Int = 0,
+) {
+    /** e.g. "Guru 31" — rank + tier, hiding the redundant number when it's 0. */
+    val display: String get() = if (levelNum > 0) "$rank $levelNum" else rank
+    /** True for skills the player has actually trained past Beginner 1. */
+    val isTrained: Boolean get() = !(rank.equals("Beginner", true) && levelNum <= 1)
+}
+
+@Serializable
 data class PlayerProfile(
     @SerialName("family_name") val familyName: String = "",
     val region: String = "",
-    val guild: String = "",
-    @SerialName("gear_score") val gearScore: Int = 0,
+    val guild: String? = null,
+    @SerialName("max_gear_score") val gearScore: Int = 0,
     @SerialName("contribution_points") val contributionPoints: Int = 0,
     val energy: Int = 0,
+    @SerialName("family_created") val familyCreated: String = "",
     val characters: List<PlayerCharacter> = emptyList(),
-    @SerialName("life_skills") val lifeSkills: Map<String, String> = emptyMap(),
+    @SerialName("life_skills") val lifeSkills: List<LifeSkill> = emptyList(),
 )
+
+// =============================================================================
+// Coupons  (GET /api/coupons)
+//   { total_coupons, coupons:[{ code, description, rewards, expiry_date,
+//     is_expired, created_at }] }   description = "PC" | "Console" | "Both"
+// =============================================================================
 
 @Serializable
 data class Coupon(
     val code: String = "",
     val rewards: String = "",
-    val platform: String = "",
-    val expires: String = "",
-)
+    val description: String = "",
+    @SerialName("expiry_date") val expiryDate: String? = null,
+    @SerialName("is_expired") val isExpired: Boolean = false,
+) {
+    /** Platform label ("PC"/"Console"/"Both"). */
+    val platform: String get() = description
+    /** Expiry text, or blank when the coupon has no published expiry. */
+    val expires: String get() = expiryDate.orEmpty()
+}
 
-/**
- * CouponsResponse wraps a list of [Coupon]s with a total count.
- *
- * The BDO Alerts API does not have a guaranteed field name for the coupon array.
- * Observed possibilities: "coupons", "data", "items". We model the two most likely keys
- * ("coupons" and "data") both with defaults of emptyList(). The client's [BdoAlertsApi.coupons]
- * method picks the non-empty list from whichever field was populated, falling back to the
- * other if needed — so any single-field variant deserializes correctly without custom serializers.
- */
 @Serializable
 data class CouponsResponse(
     val coupons: List<Coupon> = emptyList(),
-    // Some API revisions may return the array under "data"
-    val data: List<Coupon> = emptyList(),
-    val total: Int = 0,
+    @SerialName("total_coupons") val totalCoupons: Int = 0,
 )
 
-/**
- * News item — the /api/news shape isn't published, so this is intentionally tolerant:
- * we read whichever common fields are present (title/url/date) and ignore the rest.
- */
+// =============================================================================
+// News  (GET /api/news?board_type=1..5)
+//   { total_updates, board_name, updates:[{ title, url, image_url,
+//     date_posted, description, board_name }] }
+// =============================================================================
+
 @Serializable
 data class NewsItem(
     val title: String = "",
     val url: String = "",
-    val link: String = "",
-    val date: String = "",
-    @SerialName("published_at") val publishedAt: String = "",
-    val category: String = "",
-    val summary: String = "",
+    @SerialName("image_url") val imageUrl: String = "",
+    @SerialName("date_posted") val datePosted: String = "",
+    val description: String = "",
+    @SerialName("board_name") val boardName: String = "",
 ) {
-    val href: String get() = url.ifBlank { link }
-    val whenText: String get() = date.ifBlank { publishedAt }
+    val href: String get() = url
+    val whenText: String get() = datePosted
 }
 
 @Serializable
 data class NewsResponse(
-    val news: List<NewsItem> = emptyList(),
-    val articles: List<NewsItem> = emptyList(),
-    val data: List<NewsItem> = emptyList(),
+    val updates: List<NewsItem> = emptyList(),
+    @SerialName("total_updates") val totalUpdates: Int = 0,
 )
 
-/** Maintenance status — tolerant model (response shape not published). */
+// =============================================================================
+// Maintenance  (GET /api/maintenance-status?region=)
+//   { region, in_maintenance, started_at, ends_at, time_remaining, message }
+// =============================================================================
+
 @Serializable
 data class MaintenanceStatus(
     val region: String = "",
     @SerialName("in_maintenance") val inMaintenance: Boolean = false,
-    @SerialName("is_maintenance") val isMaintenance: Boolean = false,
-    val status: String = "",
+    @SerialName("started_at") val startedAt: String? = null,
+    @SerialName("ends_at") val endsAt: String? = null,
     val message: String = "",
-    val countdown: String = "",
-    @SerialName("next_maintenance") val nextMaintenance: String = "",
 ) {
-    val active: Boolean get() = inMaintenance || isMaintenance || status.equals("maintenance", true)
+    val active: Boolean get() = inMaintenance
+    /** No reliable idle countdown field; shown only while in maintenance via [nextMaintenance]. */
+    val countdown: String get() = ""
+    val nextMaintenance: String get() = if (inMaintenance) endsAt.orEmpty() else ""
 }
 
-/** Player search result entry. */
+// =============================================================================
+// Player & guild search
+// =============================================================================
+
 @Serializable
 data class PlayerSearchResult(
     @SerialName("family_name") val familyName: String = "",
     @SerialName("profile_target") val profileTarget: String = "",
+    val guild: String? = null,
     val region: String = "",
 )
 
 @Serializable
 data class PlayerSearchResponse(
     val results: List<PlayerSearchResult> = emptyList(),
-    val players: List<PlayerSearchResult> = emptyList(),
-    val data: List<PlayerSearchResult> = emptyList(),
+    val total: Int = 0,
+)
+
+@Serializable
+data class GuildSearchResult(
+    @SerialName("guild_name") val guildName: String = "",
+    @SerialName("guild_master") val guildMaster: String = "",
+    @SerialName("member_count") val memberCount: Int = 0,
+)
+
+@Serializable
+data class GuildSearchResponse(
+    val results: List<GuildSearchResult> = emptyList(),
+    val total: Int = 0,
 )

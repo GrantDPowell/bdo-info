@@ -135,8 +135,10 @@ private fun ProfileBody(p: PlayerProfile) {
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(p.familyName, style = BdoType.display.copy(fontSize = 22.sp), color = BdoColors.onBg, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (p.guild.isNotBlank()) {
+                        if (!p.guild.isNullOrBlank()) {
                             Text("⟨${p.guild}⟩", style = MaterialTheme.typography.bodySmall, color = BdoColors.goldHi)
+                        } else if (p.familyCreated.isNotBlank()) {
+                            Text("Since ${p.familyCreated}", style = MaterialTheme.typography.bodySmall, color = BdoColors.onFaint)
                         }
                     }
                     if (p.gearScore > 0) {
@@ -176,15 +178,16 @@ private fun ProfileBody(p: PlayerProfile) {
             }
         }
 
-        if (p.lifeSkills.isNotEmpty()) {
+        val skills = p.lifeSkills.filter { it.isTrained }.ifEmpty { p.lifeSkills }
+        if (skills.isNotEmpty()) {
             item { SectionLabel("Life skills", Modifier.padding(top = 6.dp)) }
             item {
                 BdoCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(14.dp)) {
-                    p.lifeSkills.entries.forEachIndexed { i, (skill, level) ->
+                    skills.forEachIndexed { i, ls ->
                         if (i > 0) Spacer(Modifier.height(6.dp))
                         Row(Modifier.fillMaxWidth()) {
-                            Text(skill, Modifier.weight(1f), color = BdoColors.onMuted)
-                            Text(level, color = BdoColors.goldHi, fontWeight = FontWeight.SemiBold)
+                            Text(ls.skill, Modifier.weight(1f), color = BdoColors.onMuted)
+                            Text(ls.display, color = BdoColors.goldHi, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }

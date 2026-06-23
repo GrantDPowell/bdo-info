@@ -48,10 +48,12 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.gpowell.bdoboss.data.SettingsRepository
 import com.gpowell.bdoboss.data.api.ApiResult
 import com.gpowell.bdoboss.data.api.BdoAlertsApi
@@ -168,12 +170,25 @@ private fun NewsTab(api: BdoAlertsApi) {
                     onClick = if (n.href.isNotBlank()) {
                         { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(n.href))) } }
                     } else null,
-                    contentPadding = PaddingValues(14.dp),
+                    contentPadding = PaddingValues(12.dp),
                 ) {
-                    Text(n.title, fontWeight = FontWeight.SemiBold, color = BdoColors.onBg)
-                    if (n.whenText.isNotBlank()) {
-                        Spacer(Modifier.height(2.dp))
-                        Text(n.whenText, style = MaterialTheme.typography.labelSmall, color = BdoColors.onFaint)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (n.imageUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = n.imageUrl,
+                                contentDescription = null,
+                                modifier = Modifier.size(width = 84.dp, height = 48.dp).clip(RoundedCornerShape(6.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                            Spacer(Modifier.width(12.dp))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(n.title, fontWeight = FontWeight.SemiBold, color = BdoColors.onBg, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            if (n.whenText.isNotBlank()) {
+                                Spacer(Modifier.height(3.dp))
+                                Text(n.whenText, style = MaterialTheme.typography.labelSmall, color = BdoColors.goldHi)
+                            }
+                        }
                     }
                 }
             }
