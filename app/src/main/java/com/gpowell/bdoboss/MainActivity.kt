@@ -174,6 +174,9 @@ class MainActivity : ComponentActivity() {
                 // Cross-tab nav: Hub ITEM favorites jump into Market item detail.
                 // MarketScreen consumes the request and clears it.
                 var marketDetailItemId by remember { mutableStateOf<Int?>(null) }
+                // Cross-tab nav: Events links open in the Hub's in-app browser (so they
+                // join the shared session + favorites). HubScreen consumes & clears it.
+                var pendingBrowserUrl by remember { mutableStateOf<String?>(null) }
                 // Single source of truth: the latest LIVE spawns (cached for offline/boot).
                 var liveSpawns by remember { mutableStateOf<List<Spawn>>(emptyList()) }
                 var lastArmedSig by remember { mutableStateOf("") }
@@ -244,6 +247,7 @@ class MainActivity : ComponentActivity() {
                                     0 -> BossesScreen(
                                         spawns = liveSpawns,
                                         onSpawnClick = { selectedSpawn = it },
+                                        onOpenSettings = { showSettings = true },
                                         headerContent = { LiveHeader(live) },
                                     )
                                     1 -> MarketScreen(
@@ -253,7 +257,10 @@ class MainActivity : ComponentActivity() {
                                         externalDetailItemId = marketDetailItemId,
                                         onExternalDetailConsumed = { marketDetailItemId = null },
                                     )
-                                    2 -> EventsScreen(onOpenSettings = { showSettings = true })
+                                    2 -> EventsScreen(
+                                        onOpenSettings = { showSettings = true },
+                                        onOpenUrl = { pendingBrowserUrl = it; tab = 4 },
+                                    )
                                     3 -> ProfileScreen(onOpenSettings = { showSettings = true })
                                     4 -> HubScreen(
                                         onOpenItem = { itemId ->
@@ -262,6 +269,8 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onOpenSettings = { showSettings = true },
                                         onOpenCredits = { showCredits = true },
+                                        externalUrl = pendingBrowserUrl,
+                                        onExternalUrlConsumed = { pendingBrowserUrl = null },
                                     )
                                 }
                             }

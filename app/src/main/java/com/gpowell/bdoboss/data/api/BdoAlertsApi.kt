@@ -218,9 +218,10 @@ class BdoAlertsApi(
         region: String,
         guildName: String,
         forceRefresh: Boolean = false,
-    ): ApiResult<JsonElement> {
+    ): ApiResult<GuildProfile> {
         val params = if (forceRefresh) mapOf("force_refresh" to "true") else emptyMap()
         return getRaw("/api/guild/$region/${guildName.encodeUrl()}", params)
+            .parse(GuildProfile.serializer())
     }
 
     // =========================================================================
@@ -413,11 +414,11 @@ class BdoAlertsApi(
         getRaw("/api/boss-timers/$region")
 
     /**
-     * GET /api/reset-timers?region= — daily/weekly reset countdowns.
-     * Cache hint: refresh every 30 seconds.
+     * GET /api/reset-timers?region= — daily/weekly/blackshrine/imperial/trade/barter
+     * reset countdowns, typed. Cache hint: refresh every 30 seconds.
      */
-    suspend fun resetTimers(region: String): ApiResult<JsonElement> =
-        getRaw("/api/reset-timers", mapOf("region" to region))
+    suspend fun resetTimers(region: String): ApiResult<ResetTimers> =
+        getRaw("/api/reset-timers", mapOf("region" to region)).parse(ResetTimers.serializer())
 
     // =========================================================================
     // Cave (Atoraxxion)
@@ -427,8 +428,12 @@ class BdoAlertsApi(
      * GET /api/cave-status?region= — current Atoraxxion cave open/closed status.
      * Cache hint: refresh every 60 seconds (matches WebSocket push cadence).
      */
-    suspend fun caveStatus(region: String): ApiResult<JsonElement> =
-        getRaw("/api/cave-status", mapOf("region" to region))
+    suspend fun caveStatus(region: String): ApiResult<CaveStatus> =
+        getRaw("/api/cave-status", mapOf("region" to region)).parse(CaveStatus.serializer())
+
+    /** GET /api/cave-history/stats?region= — typed open/close stats per region. */
+    suspend fun caveStatsTyped(region: String): ApiResult<CaveStatsResponse> =
+        getRaw("/api/cave-history/stats", mapOf("region" to region)).parse(CaveStatsResponse.serializer())
 
     /**
      * GET /api/cave-history?region=&limit=&status= — historical cave open/close events.

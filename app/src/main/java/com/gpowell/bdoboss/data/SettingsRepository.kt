@@ -81,6 +81,9 @@ class SettingsRepository(private val context: Context) {
 
         val API_KEY = stringPreferencesKey("bdoalerts_api_key")
 
+        // The user's own BDO Family name, so Profile auto-loads "my profile".
+        val MY_FAMILY = stringPreferencesKey("my_family_name")
+
         // Orrery animated effects (gold dust, radar sweep, ticking prices, …). Default on.
         val EFFECTS = booleanPreferencesKey("effects_enabled")
 
@@ -117,6 +120,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setApiKey(value: String) {
         context.dataStore.edit { it[Keys.API_KEY] = value }
+    }
+
+    // -------------------------------------------------------------------------
+    // "My profile" — the user's own Family name, pinned so Profile loads instantly.
+    // -------------------------------------------------------------------------
+    val myFamilyFlow: Flow<String> = context.dataStore.data.map { it[Keys.MY_FAMILY] ?: "" }
+
+    suspend fun setMyFamily(value: String) {
+        context.dataStore.edit { it[Keys.MY_FAMILY] = value.trim() }
     }
 
     val settings: Flow<NotificationSettings> = context.dataStore.data.map { it.toSettings() }

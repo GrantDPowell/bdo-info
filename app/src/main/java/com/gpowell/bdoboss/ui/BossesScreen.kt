@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.gpowell.bdoboss.domain.Spawn
 import com.gpowell.bdoboss.ui.theme.BdoSubTabs
 
-private val SUB_TABS = listOf("Dial", "Timers", "Agenda", "Alerts")
+private val SUB_TABS = listOf("Dial", "Timers", "Agenda", "World", "Alerts")
 
 /**
  * "Bosses" top-level tab: Dial / Timers / Agenda / Alerts behind a secondary tab row.
@@ -31,6 +31,7 @@ private val SUB_TABS = listOf("Dial", "Timers", "Agenda", "Alerts")
 fun BossesScreen(
     spawns: List<Spawn>,
     onSpawnClick: (Spawn) -> Unit,
+    onOpenSettings: () -> Unit = {},
     headerContent: (@Composable () -> Unit)? = null,
 ) {
     var subTab by rememberSaveable { mutableIntStateOf(0) }
@@ -65,7 +66,8 @@ fun BossesScreen(
                         headerContent = headerContent,
                     )
                     2 -> ScheduleScreen(spawns, onSpawnClick = onSpawnClick)
-                    3 -> AlertsScreen()
+                    3 -> WorldScreen(onOpenSettings = onOpenSettings)
+                    4 -> AlertsScreen()
                 }
             }
         }

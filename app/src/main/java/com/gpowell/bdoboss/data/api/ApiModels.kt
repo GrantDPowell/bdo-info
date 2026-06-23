@@ -144,3 +144,71 @@ data class GuildSearchResponse(
     val results: List<GuildSearchResult> = emptyList(),
     val total: Int = 0,
 )
+
+@Serializable
+data class GuildProfile(
+    @SerialName("guild_name") val guildName: String = "",
+    val region: String = "",
+    @SerialName("guild_master") val guildMaster: String = "",
+    @SerialName("member_count") val memberCount: Int = 0,
+    val members: List<String> = emptyList(),
+)
+
+// =============================================================================
+// Reset timers  (GET /api/reset-timers?region=)
+//   each entry: { next_reset, time_until{...}, countdown:"16m 23s" }
+// =============================================================================
+
+@Serializable
+data class ResetEntry(
+    @SerialName("next_reset") val nextReset: String = "",
+    val countdown: String = "",
+)
+
+@Serializable
+data class ResetTimers(
+    @SerialName("daily_reset") val daily: ResetEntry? = null,
+    @SerialName("weekly_reset") val weekly: ResetEntry? = null,
+    @SerialName("blackshrine_reset") val blackShrine: ResetEntry? = null,
+    @SerialName("imperial_delivery") val imperial: ResetEntry? = null,
+    @SerialName("trade_reset") val trade: ResetEntry? = null,
+    @SerialName("barter_reset") val barter: ResetEntry? = null,
+) {
+    /** Ordered (label, entry) pairs for display, skipping any the API omitted. */
+    fun rows(): List<Pair<String, ResetEntry>> = listOfNotNull(
+        daily?.let { "Daily" to it },
+        weekly?.let { "Weekly" to it },
+        blackShrine?.let { "Black Shrine" to it },
+        imperial?.let { "Imperial Delivery" to it },
+        trade?.let { "Trade" to it },
+        barter?.let { "Barter" to it },
+    )
+}
+
+// =============================================================================
+// Golden Pig Cave  (GET /api/cave-status?region= , /api/cave-history/stats?region=)
+// =============================================================================
+
+@Serializable
+data class CaveStatus(
+    val region: String = "",
+    val status: String = "",          // "OPEN" / "CLOSED"
+    val message: String = "",
+    @SerialName("last_checked") val lastChecked: String = "",
+) {
+    val isOpen: Boolean get() = status.equals("OPEN", true)
+}
+
+@Serializable
+data class CaveStatEntry(
+    @SerialName("total_changes") val totalChanges: Int = 0,
+    @SerialName("total_opens") val totalOpens: Int = 0,
+    @SerialName("total_closes") val totalCloses: Int = 0,
+    @SerialName("last_status") val lastStatus: String = "",
+    @SerialName("last_change") val lastChange: String = "",
+)
+
+@Serializable
+data class CaveStatsResponse(
+    val stats: Map<String, CaveStatEntry> = emptyMap(),
+)
