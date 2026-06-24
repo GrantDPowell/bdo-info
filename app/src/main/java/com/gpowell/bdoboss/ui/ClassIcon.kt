@@ -48,7 +48,11 @@ fun classDrawable(className: String): Int? = when (className.lowercase().filter 
     "witch" -> R.drawable.class_witch
     "wizard" -> R.drawable.class_wizard
     "woosa" -> R.drawable.class_woosa
-    else -> null // Deadeye / Dosa / Wukong / Seraph — no labelled source yet → monogram
+    "deadeye" -> R.drawable.class_deadeye
+    "dosa" -> R.drawable.class_dosa
+    "wukong" -> R.drawable.class_wukong
+    "seraph" -> R.drawable.class_seraph
+    else -> null
 }
 
 /**
@@ -59,6 +63,7 @@ fun classDrawable(className: String): Int? = when (className.lowercase().filter 
 fun ClassIcon(className: String, size: Dp = 38.dp, grade: Int = 0, glow: Boolean = false) {
     val res = classDrawable(className)
     if (res != null) {
+        // Portraits are busts — crop square biased to the top so the face shows.
         Image(
             painter = painterResource(res),
             contentDescription = className,
@@ -66,6 +71,8 @@ fun ClassIcon(className: String, size: Dp = 38.dp, grade: Int = 0, glow: Boolean
                 .size(size)
                 .clip(RoundedCornerShape(9.dp))
                 .background(BdoColors.surface2),
+            alignment = androidx.compose.ui.Alignment.TopCenter,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
         )
     } else {
         Monogram(text = className.take(2).uppercase(), grade = grade, size = size, glow = glow)
