@@ -21,8 +21,8 @@ android {
         applicationId = "org.okimasha.bdoinfo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 38
-        versionName = "1.2.0"
+        versionCode = 39
+        versionName = "1.3.0"
     }
     signingConfigs {
         if (keystoreProps.isNotEmpty()) {

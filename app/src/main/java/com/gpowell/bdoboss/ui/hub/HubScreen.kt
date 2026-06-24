@@ -120,14 +120,16 @@ fun HubScreen(
     onOpenCredits: () -> Unit = {},
     externalUrl: String? = null,
     onExternalUrlConsumed: () -> Unit = {},
+    onExternalBrowserClosed: () -> Unit = {},
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val repo = remember { FavoritesRepository(ctx.applicationContext) }
     var currentUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    // True when the browser was opened from another tab (Events), so closing it returns there.
+    var openedExternally by rememberSaveable { mutableStateOf(false) }
 
-    // An Events (or other tab) link asked to open in the in-app browser.
     androidx.compose.runtime.LaunchedEffect(externalUrl) {
-        if (externalUrl != null) { currentUrl = externalUrl; onExternalUrlConsumed() }
+        if (externalUrl != null) { currentUrl = externalUrl; openedExternally = true; onExternalUrlConsumed() }
     }
 
     val url = currentUrl
@@ -140,7 +142,13 @@ fun HubScreen(
             onOpenCredits = onOpenCredits,
         )
     } else {
-        BrowserScreen(initialUrl = url, repo = repo, onExit = { currentUrl = null })
+        BrowserScreen(
+            initialUrl = url, repo = repo,
+            onExit = {
+                currentUrl = null
+                if (openedExternally) { openedExternally = false; onExternalBrowserClosed() }
+            },
+        )
     }
 }
 

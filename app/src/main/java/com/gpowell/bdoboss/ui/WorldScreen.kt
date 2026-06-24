@@ -71,12 +71,14 @@ fun WorldScreen(onOpenSettings: () -> Unit) {
     var resets by remember { mutableStateOf<ResetTimers?>(null) }
     var cave by remember { mutableStateOf<CaveStatus?>(null) }
     var caveStats by remember { mutableStateOf<CaveStatsResponse?>(null) }
+    var schedule by remember { mutableStateOf<Map<String, List<com.gpowell.bdoboss.data.api.ScheduleSlot>>?>(null) }
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     LaunchedEffect(Unit) {
         (api.resetTimers(REGION_W) as? ApiResult.Success)?.let { resets = it.data }
         (api.caveStatus(REGION_W) as? ApiResult.Success)?.let { cave = it.data }
         (api.caveStatsTyped(REGION_W) as? ApiResult.Success)?.let { caveStats = it.data }
+        (api.bossSchedule(REGION_W) as? ApiResult.Success)?.let { schedule = it.data }
     }
     LaunchedEffect(Unit) {
         while (true) { nowMs = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) }
@@ -137,9 +139,37 @@ fun WorldScreen(onOpenSettings: () -> Unit) {
                 }
             }
         }
+        // ── Weekly schedule (real grid from the API) ──
+        SectionLabel("This week", Modifier.padding(top = 6.dp))
+        val sch = schedule
+        if (sch == null) {
+            BdoCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(16.dp)) { Text("Loading…", color = BdoColors.onFaint) }
+        } else {
+            val today = java.time.LocalDate.now().dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.US)
+            DAY_ORDER.filter { sch.containsKey(it) }.forEach { day ->
+                val slots = sch[day].orEmpty().filter { it.bosses.isNotEmpty() }
+                if (slots.isEmpty()) return@forEach
+                BdoCard(Modifier.fillMaxWidth(), facet = day == today, glow = day == today, contentPadding = PaddingValues(12.dp)) {
+                    Text(
+                        if (day == today) "$day · today" else day,
+                        style = BdoType.overline.copy(fontSize = 10.sp),
+                        color = if (day == today) BdoColors.goldHi else BdoColors.gold,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    slots.forEach { slot ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                            Text(slot.time, style = BdoType.num.copy(fontSize = 13.sp), color = BdoColors.onMuted, modifier = Modifier.width(56.dp))
+                            Text(slot.bosses.joinToString(", "), color = BdoColors.onBg, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+        }
         Spacer(Modifier.height(20.dp))
     }
 }
+
+private val DAY_ORDER = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
 /** Format the time remaining until [iso] (an ISO-8601 instant w/ offset) as "2d 14h 03m" / "14:03". */
 private fun liveCountdown(iso: String, nowMs: Long): String {

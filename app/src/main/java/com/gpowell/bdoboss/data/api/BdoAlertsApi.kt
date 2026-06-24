@@ -3,6 +3,9 @@ package com.gpowell.bdoboss.data.api
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.DeserializationStrategy
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import okhttp3.OkHttpClient
@@ -434,6 +437,62 @@ class BdoAlertsApi(
     /** GET /api/cave-history/stats?region= — typed open/close stats per region. */
     suspend fun caveStatsTyped(region: String): ApiResult<CaveStatsResponse> =
         getRaw("/api/cave-history/stats", mapOf("region" to region)).parse(CaveStatsResponse.serializer())
+
+    // =========================================================================
+    // Reference / Codex data (schedule, leaderboards, grind spots, cron, lightstones,
+    // skills, tier lists, guides, hot market, streamers)
+    // =========================================================================
+
+    /** GET /api/boss-schedule/{region} — the real weekly grid as day → time slots. */
+    suspend fun bossSchedule(region: String): ApiResult<Map<String, List<ScheduleSlot>>> =
+        getRaw("/api/boss-schedule/$region")
+            .parse(MapSerializer(String.serializer(), ListSerializer(ScheduleSlot.serializer())))
+
+    /** GET /api/leaderboard/gear-score — top players by gear score. */
+    suspend fun leaderboardGearScore(): ApiResult<GearLeaderboard> =
+        getRaw("/api/leaderboard/gear-score").parse(GearLeaderboard.serializer())
+
+    /** GET /api/leaderboard/life-skills — top player per life skill. */
+    suspend fun leaderboardLifeSkills(): ApiResult<LifeLeaderboard> =
+        getRaw("/api/leaderboard/life-skills").parse(LifeLeaderboard.serializer())
+
+    /** GET /api/best-grindspots — ranked grind spots with silver/hr, AP/DP, caps. */
+    suspend fun bestGrindspots(): ApiResult<GrindSpotsResp> =
+        getRaw("/api/best-grindspots").parse(GrindSpotsResp.serializer())
+
+    /** GET /api/cron-costs — Cron Stone cost per enhancement level, by equipment. */
+    suspend fun cronCosts(): ApiResult<CronCostsResp> =
+        getRaw("/api/cron-costs").parse(CronCostsResp.serializer())
+
+    /** GET /api/lightstone-data — combat lightstone sets, requirements & bonuses. */
+    suspend fun lightstoneData(): ApiResult<LightstoneResp> =
+        getRaw("/api/lightstone-data").parse(LightstoneResp.serializer())
+
+    /** GET /api/skills/{class} — full skill list with icon URLs. */
+    suspend fun classSkills(className: String): ApiResult<ClassSkills> =
+        getRaw("/api/skills/${className.encodeUrl()}").parse(ClassSkills.serializer())
+
+    /** GET /api/tier-lists — community tier lists (share codes). */
+    suspend fun tierLists(): ApiResult<TierListsResp> =
+        getRaw("/api/tier-lists").parse(TierListsResp.serializer())
+
+    /** GET /api/guides — community class guides. */
+    suspend fun guides(): ApiResult<GuidesResp> =
+        getRaw("/api/guides").parse(GuidesResp.serializer())
+
+    /** GET /api/market/{region}/hot — curated hot items (price + volume + direction). */
+    suspend fun marketHotTyped(region: String, limit: Int? = null): ApiResult<HotResp> {
+        val params = buildMap<String, String> { if (limit != null) put("limit", limit.toString()) }
+        return getRaw("/api/market/$region/hot", params).parse(HotResp.serializer())
+    }
+
+    /** GET /api/streamers — all tracked BDO streamers. */
+    suspend fun streamers(): ApiResult<StreamersResp> =
+        getRaw("/api/streamers").parse(StreamersResp.serializer())
+
+    /** GET /api/streamers/live — currently live streamers only. */
+    suspend fun streamersLive(): ApiResult<StreamersResp> =
+        getRaw("/api/streamers/live").parse(StreamersResp.serializer())
 
     /**
      * GET /api/cave-history?region=&limit=&status= — historical cave open/close events.

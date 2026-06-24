@@ -212,3 +212,189 @@ data class CaveStatEntry(
 data class CaveStatsResponse(
     val stats: Map<String, CaveStatEntry> = emptyMap(),
 )
+
+// =============================================================================
+// Weekly boss schedule  (GET /api/boss-schedule/{region})
+//   { "Monday":[{time:"00:00", bosses:["Kzarka",...]}], "Tuesday":[...], ... }
+// =============================================================================
+
+@Serializable
+data class ScheduleSlot(val time: String = "", val bosses: List<String> = emptyList())
+
+// =============================================================================
+// Leaderboards  (GET /api/leaderboard/gear-score , /api/leaderboard/life-skills)
+// =============================================================================
+
+@Serializable
+data class GearLeader(
+    val rank: Int = 0,
+    @SerialName("family_name") val familyName: String = "",
+    @SerialName("guild_name") val guildName: String? = null,
+    val region: String = "",
+    @SerialName("gear_score") val gearScore: Int = 0,
+    @SerialName("main_class") val mainClass: String = "",
+)
+
+@Serializable
+data class GearLeaderboard(val leaderboard: List<GearLeader> = emptyList())
+
+@Serializable
+data class LifeLeader(
+    val rank: Int = 0,
+    @SerialName("skill_name") val skillName: String = "",
+    @SerialName("family_name") val familyName: String = "",
+    @SerialName("guild_name") val guildName: String? = null,
+    val region: String = "",
+    @SerialName("skill_rank") val skillRank: String = "",
+)
+
+@Serializable
+data class LifeLeaderboard(val leaderboard: List<LifeLeader> = emptyList())
+
+// =============================================================================
+// Grind spots  (GET /api/best-grindspots — folds in monster-ap-caps)
+// =============================================================================
+
+@Serializable
+data class GrindSpot(
+    val name: String = "",
+    val rank: Int = 0,
+    @SerialName("silver_per_hour") val silverPerHour: String = "",
+    @SerialName("ap_requirement") val apReq: String = "",
+    @SerialName("dp_requirement") val dpReq: String = "",
+    @SerialName("cap_ap") val capAp: Int = 0,
+    @SerialName("notable_drops") val notableDrops: List<String> = emptyList(),
+)
+
+@Serializable
+data class GrindSpotsResp(@SerialName("grind_spots") val grindSpots: List<GrindSpot> = emptyList())
+
+// =============================================================================
+// Cron costs  (GET /api/cron-costs)
+// =============================================================================
+
+@Serializable
+data class CronItem(
+    val name: String = "",
+    val grade: Int = 0,
+    @SerialName("image_url") val imageUrl: String = "",
+    @SerialName("cron_costs") val cronCosts: Map<String, Int?> = emptyMap(),
+)
+
+@Serializable
+data class CronCostsResp(
+    @SerialName("equipment_types") val equipmentTypes: List<String> = emptyList(),
+    val data: Map<String, List<CronItem>> = emptyMap(),
+)
+
+// =============================================================================
+// Lightstone sets  (GET /api/lightstone-data)
+// =============================================================================
+
+@Serializable
+data class LightstoneReq(val type: String = "", val stones: List<String> = emptyList())
+
+@Serializable
+data class LightstoneBonusTier(val tier: String = "", val bonuses: Map<String, String> = emptyMap())
+
+@Serializable
+data class LightstoneSet(
+    val name: String = "",
+    @SerialName("is_special") val isSpecial: Boolean = false,
+    val requirements: List<LightstoneReq> = emptyList(),
+    @SerialName("bonus_tiers") val bonusTiers: List<LightstoneBonusTier> = emptyList(),
+)
+
+@Serializable
+data class LightstoneResp(@SerialName("combat_sets") val combatSets: List<LightstoneSet> = emptyList())
+
+// =============================================================================
+// Class skills  (GET /api/skills/{class})
+// =============================================================================
+
+@Serializable
+data class GameSkill(
+    val id: Int = 0,
+    val name: String = "",
+    @SerialName("icon_url") val iconUrl: String = "",
+)
+
+@Serializable
+data class ClassSkills(
+    @SerialName("class_name") val className: String = "",
+    @SerialName("total_skills") val totalSkills: Int = 0,
+    val skills: List<GameSkill> = emptyList(),
+)
+
+// =============================================================================
+// Tier lists & guides  (GET /api/tier-lists , /api/guides)
+// =============================================================================
+
+@Serializable
+data class TierList(
+    val id: Int = 0,
+    val username: String = "",
+    val title: String = "",
+    val description: String = "",
+    @SerialName("tier_type") val tierType: String = "",
+    @SerialName("share_code") val shareCode: String = "",
+    val views: Int = 0,
+)
+
+@Serializable
+data class TierListsResp(@SerialName("tier_lists") val tierLists: List<TierList> = emptyList())
+
+@Serializable
+data class Guide(
+    val id: String = "",
+    @SerialName("author_name") val author: String = "",
+    @SerialName("class_name") val className: String = "",
+    val title: String = "",
+    val description: String = "",
+    @SerialName("guide_type") val guideType: String = "",
+    val tags: List<String> = emptyList(),
+    val views: Int = 0,
+    val likes: Int = 0,
+)
+
+@Serializable
+data class GuidesResp(val guides: List<Guide> = emptyList())
+
+// =============================================================================
+// Hot market items  (GET /api/market/{region}/hot) — curated, works keyless of scrape
+// =============================================================================
+
+@Serializable
+data class HotItem(
+    @SerialName("item_id") val itemId: Int = 0,
+    @SerialName("sub_key") val subKey: Int = 0,
+    val name: String = "",
+    val price: Long = 0,
+    val stock: Long = 0,
+    @SerialName("total_trades") val totalTrades: Long = 0,
+    @SerialName("price_change_direction") val direction: String = "",
+)
+
+@Serializable
+data class HotResp(val items: List<HotItem> = emptyList())
+
+// =============================================================================
+// Streamers  (GET /api/streamers , /api/streamers/live)
+// =============================================================================
+
+@Serializable
+data class Streamer(
+    val username: String = "",
+    @SerialName("display_name") val displayName: String = "",
+    @SerialName("avatar_url") val avatarUrl: String = "",
+    @SerialName("is_live") val isLive: Boolean = false,
+    @SerialName("viewer_count") val viewerCount: Int = 0,
+    @SerialName("stream_title") val streamTitle: String? = null,
+    @SerialName("game_name") val gameName: String? = null,
+)
+
+@Serializable
+data class StreamersResp(
+    val streamers: List<Streamer> = emptyList(),
+    @SerialName("total_viewers") val totalViewers: Int = 0,
+)

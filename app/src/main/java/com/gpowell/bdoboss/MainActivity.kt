@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Public
@@ -77,6 +78,7 @@ import com.gpowell.bdoboss.live.WsBoss
 import com.gpowell.bdoboss.notify.AlarmScheduler
 import com.gpowell.bdoboss.ui.AppSettingsScreen
 import com.gpowell.bdoboss.ui.BossDetailSheet
+import com.gpowell.bdoboss.ui.CodexScreen
 import com.gpowell.bdoboss.ui.CreditsScreen
 import com.gpowell.bdoboss.ui.BossesScreen
 import com.gpowell.bdoboss.ui.EventsScreen
@@ -123,6 +125,7 @@ private val TOP_TABS = listOf(
     TopTab("Events", Icons.Outlined.CalendarMonth),
     TopTab("Profile", Icons.Outlined.Person),
     TopTab("Hub", Icons.Outlined.Public),
+    TopTab("Codex", Icons.Outlined.AutoStories),
 )
 
 class MainActivity : ComponentActivity() {
@@ -175,8 +178,10 @@ class MainActivity : ComponentActivity() {
                 // MarketScreen consumes the request and clears it.
                 var marketDetailItemId by remember { mutableStateOf<Int?>(null) }
                 // Cross-tab nav: Events links open in the Hub's in-app browser (so they
-                // join the shared session + favorites). HubScreen consumes & clears it.
+                // join the shared session + favorites). HubScreen consumes & clears it, and
+                // when that browser closes we return to whichever tab opened it.
                 var pendingBrowserUrl by remember { mutableStateOf<String?>(null) }
+                var browserReturnTab by remember { mutableIntStateOf(4) }
                 // Single source of truth: the latest LIVE spawns (cached for offline/boot).
                 var liveSpawns by remember { mutableStateOf<List<Spawn>>(emptyList()) }
                 var lastArmedSig by remember { mutableStateOf("") }
@@ -259,7 +264,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                     2 -> EventsScreen(
                                         onOpenSettings = { showSettings = true },
-                                        onOpenUrl = { pendingBrowserUrl = it; tab = 4 },
+                                        onOpenUrl = { pendingBrowserUrl = it; browserReturnTab = 2; tab = 4 },
                                     )
                                     3 -> ProfileScreen(onOpenSettings = { showSettings = true })
                                     4 -> HubScreen(
@@ -271,6 +276,11 @@ class MainActivity : ComponentActivity() {
                                         onOpenCredits = { showCredits = true },
                                         externalUrl = pendingBrowserUrl,
                                         onExternalUrlConsumed = { pendingBrowserUrl = null },
+                                        onExternalBrowserClosed = { tab = browserReturnTab },
+                                    )
+                                    5 -> CodexScreen(
+                                        onOpenSettings = { showSettings = true },
+                                        onOpenUrl = { pendingBrowserUrl = it; browserReturnTab = 5; tab = 4 },
                                     )
                                 }
                             }
