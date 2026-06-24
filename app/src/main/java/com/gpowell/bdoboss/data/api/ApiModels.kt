@@ -1,13 +1,41 @@
 package com.gpowell.bdoboss.data.api
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
+
+/**
+ * Tolerant boolean: the BDO Alerts API returns `is_main` as a JSON boolean for some
+ * accounts and as an integer 1/0 for others — a plain Boolean field throws on the int and
+ * kills the WHOLE profile decode (that's why geared profiles showed nothing). Accepts
+ * true/false, 1/0, or "true"/"1".
+ */
+object FlexBool : KSerializer<Boolean> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("FlexBool", PrimitiveKind.BOOLEAN)
+    override fun deserialize(decoder: Decoder): Boolean {
+        val prim = (decoder as JsonDecoder).decodeJsonElement().jsonPrimitive
+        prim.booleanOrNull?.let { return it }
+        prim.intOrNull?.let { return it != 0 }
+        return prim.content.equals("true", true) || prim.content == "1"
+    }
+    override fun serialize(encoder: Encoder, value: Boolean) = encoder.encodeBoolean(value)
+}
 
 // =============================================================================
 // Player profile  (GET /api/player/{region}/{family_name})
 // Real shape (observed 2026-06-23) — note it differs from the doc example:
 //   max_gear_score (not gear_score), character_name/character_class,
-//   life_skills is an ARRAY of objects (not a map), guild is nullable.
+//   life_skills is an ARRAY of objects (not a map), guild is nullable,
+//   is_main is sometimes a boolean and sometimes an int (see FlexBool).
 // =============================================================================
 
 @Serializable
@@ -15,7 +43,7 @@ data class PlayerCharacter(
     @SerialName("character_name") val name: String = "",
     @SerialName("character_class") val className: String = "",
     val level: Int = 0,
-    @SerialName("is_main") val isMain: Boolean = false,
+    @SerialName("is_main") @Serializable(with = FlexBool::class) val isMain: Boolean = false,
 )
 
 @Serializable

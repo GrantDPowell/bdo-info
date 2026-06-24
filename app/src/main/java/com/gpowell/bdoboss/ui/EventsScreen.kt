@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,8 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
@@ -208,10 +209,14 @@ private val EVENT_COLORS = listOf(
 private val DAYS_LEFT = Regex("""(\d+)\s*days?\s*left""", RegexOption.IGNORE_CASE)
 private fun daysLeftOf(text: String): Int? = DAYS_LEFT.find(text)?.groupValues?.get(1)?.toIntOrNull()
 
+private const val GANTT_WINDOW = 32      // days shown across the axis (matches bdoalerts)
+private val GANTT_DAY_W = 34.dp
+
 @Composable
 private fun TimelineTab(api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
     var reload by remember { mutableIntStateOf(0) }
     var state by remember { mutableStateOf<ApiResult<List<NewsItem>>?>(null) }
+    var showOngoing by remember { mutableStateOf(false) }
     LaunchedEffect(reload) { state = null; state = api.news(3, limit = 50) }
 
     when (val s = state) {
@@ -219,34 +224,51 @@ private fun TimelineTab(api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
         is ApiResult.Success -> {
             val dated = s.data.mapNotNull { n -> daysLeftOf(n.whenText)?.let { n to it } }.sortedBy { it.second }
             val ongoing = s.data.filter { daysLeftOf(it.whenText) == null }
-            val maxDays = (dated.maxOfOrNull { it.second } ?: 1).coerceAtLeast(1)
             if (dated.isEmpty() && ongoing.isEmpty()) { CenterNote("No active events."); return }
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (dated.isNotEmpty()) {
-                    item { com.gpowell.bdoboss.ui.theme.SectionLabel("Ending soonest", Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp)) }
-                    itemsIndexed(dated) { i, (n, days) ->
-                        EventBar(n, days, maxDays, EVENT_COLORS[i % EVENT_COLORS.size]) { onOpenUrl(n.href) }
-                    }
-                }
-                if (ongoing.isNotEmpty()) {
-                    item { com.gpowell.bdoboss.ui.theme.SectionLabel("Ongoing", Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp)) }
-                    itemsIndexed(ongoing) { i, n ->
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(8.dp))
-                                .clickable { onOpenUrl(n.href) }.padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(EVENT_COLORS[i % EVENT_COLORS.size]))
-                            Spacer(Modifier.width(12.dp))
-                            Text(n.title, Modifier.weight(1f), color = BdoColors.onBg, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-                            Text("Ongoing", style = MaterialTheme.typography.labelSmall, color = BdoColors.onFaint)
+            val totalW = GANTT_DAY_W * GANTT_WINDOW
+
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                // ── the gantt: a date ruler + duration bars, all anchored at "today" (left),
+                // horizontally scrollable like the bdoalerts Active Events calendar.
+                Box(Modifier.horizontalScroll(rememberScrollState())) {
+                    Column(Modifier.width(totalW).padding(start = 12.dp, end = 12.dp, top = 8.dp)) {
+                        GanttAxis()
+                        Spacer(Modifier.height(8.dp))
+                        dated.forEachIndexed { i, (n, days) ->
+                            GanttBar(n, days, EVENT_COLORS[i % EVENT_COLORS.size]) { onOpenUrl(n.href) }
+                            Spacer(Modifier.height(6.dp))
                         }
                     }
                 }
+
+                if (ongoing.isNotEmpty()) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { showOngoing = !showOngoing }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "${if (showOngoing) "Hide" else "Show"} ongoing events (${ongoing.size})",
+                            color = BdoColors.gold, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
+                        )
+                        Text(if (showOngoing) "▲" else "▼", color = BdoColors.gold)
+                    }
+                    if (showOngoing) {
+                        ongoing.forEachIndexed { i, n ->
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(8.dp))
+                                    .clickable { onOpenUrl(n.href) }.padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(EVENT_COLORS[i % EVENT_COLORS.size]))
+                                Spacer(Modifier.width(12.dp))
+                                Text(n.title, Modifier.weight(1f), color = BdoColors.onBg, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                                Text("Ongoing", style = MaterialTheme.typography.labelSmall, color = BdoColors.onFaint)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
             }
         }
         else -> Box(Modifier.fillMaxSize().padding(16.dp), Alignment.TopCenter) { ErrorLine(s) { reload++ } }
@@ -254,31 +276,52 @@ private fun TimelineTab(api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
 }
 
 @Composable
-private fun EventBar(n: NewsItem, days: Int, maxDays: Int, color: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
-    BdoCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), onClick = onClick, contentPadding = PaddingValues(10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (n.imageUrl.isNotBlank()) {
-                AsyncImage(
-                    model = n.imageUrl, contentDescription = null,
-                    modifier = Modifier.size(width = 72.dp, height = 42.dp).clip(RoundedCornerShape(6.dp)),
-                    contentScale = ContentScale.Crop,
+private fun GanttAxis() {
+    val today = java.time.LocalDate.now()
+    Row {
+        repeat(GANTT_WINDOW) { i ->
+            val d = today.plusDays(i.toLong())
+            val isToday = i == 0
+            Column(Modifier.width(GANTT_DAY_W), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    d.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.US).take(2),
+                    style = BdoType.overline.copy(fontSize = 8.sp),
+                    color = if (isToday) BdoColors.goldHi else BdoColors.onFaint,
                 )
-                Spacer(Modifier.width(10.dp))
+                Text(
+                    d.dayOfMonth.toString(),
+                    style = BdoType.num.copy(fontSize = 11.sp),
+                    color = if (isToday) BdoColors.goldHi else BdoColors.onMuted,
+                )
             }
-            Column(Modifier.weight(1f)) {
-                Text(n.title, color = BdoColors.onBg, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(6.dp))
-                // duration bar: fill ∝ days remaining vs the longest active event
-                Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(BdoColors.line)) {
-                    Box(
-                        Modifier.fillMaxWidth(fraction = (days.toFloat() / maxDays).coerceIn(0.04f, 1f))
-                            .height(6.dp).clip(RoundedCornerShape(50)).background(color),
-                    )
-                }
-            }
-            Spacer(Modifier.width(10.dp))
-            Text("${days}d", style = BdoType.num.copy(fontSize = 15.sp), color = BdoColors.goldHi)
         }
+    }
+}
+
+@Composable
+private fun GanttBar(n: NewsItem, days: Int, color: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
+    val barW = GANTT_DAY_W * days.coerceIn(1, GANTT_WINDOW)
+    val shadow = androidx.compose.ui.graphics.Shadow(androidx.compose.ui.graphics.Color.Black, blurRadius = 6f)
+    Box(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(6.dp)).clickable(onClick = onClick)) {
+        // colored duration bar with the event thumbnail behind it
+        Box(Modifier.width(barW).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(color.copy(alpha = 0.92f))) {
+            if (n.imageUrl.isNotBlank()) {
+                AsyncImage(n.imageUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.40f)
+            }
+            Text(
+                "${days}d", style = MaterialTheme.typography.labelSmall.copy(shadow = shadow),
+                color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 6.dp),
+            )
+        }
+        // title spans the full track (readable, spills past short bars — like the site)
+        Text(
+            n.title,
+            style = MaterialTheme.typography.labelMedium.copy(shadow = shadow),
+            color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.SemiBold,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().align(Alignment.CenterStart).padding(start = 10.dp, end = 30.dp),
+        )
     }
 }
 

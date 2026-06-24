@@ -203,6 +203,12 @@ private fun ProfileBody(p: PlayerProfile, isMine: Boolean, onToggleMine: () -> U
                             Text("Since ${p.familyCreated}", style = MaterialTheme.typography.bodySmall, color = BdoColors.onFaint)
                         }
                     }
+                    if (p.gearScore > 0) {
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(p.gearScore.toString(), style = BdoType.num.copy(fontSize = 26.sp), color = BdoColors.goldHi)
+                            Text("GEAR SCORE", style = BdoType.overline.copy(fontSize = 8.sp), color = BdoColors.onFaint)
+                        }
+                    }
                     IconButton(onClick = onToggleMine) {
                         Icon(
                             if (isMine) Icons.Filled.Star else Icons.Outlined.StarBorder,
@@ -213,10 +219,10 @@ private fun ProfileBody(p: PlayerProfile, isMine: Boolean, onToggleMine: () -> U
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Stat("Gear Score", p.gearScore.toString())
                     Stat("Contribution", p.contributionPoints.toString())
                     Stat("Energy", p.energy.toString())
                     Stat("Characters", p.characters.size.toString())
+                    Stat("Life Skills", p.lifeSkills.count { it.isTrained }.toString())
                 }
             }
         }
@@ -240,7 +246,7 @@ private fun ProfileBody(p: PlayerProfile, isMine: Boolean, onToggleMine: () -> U
             }
         }
 
-        val skills = p.lifeSkills.filter { it.isTrained }.ifEmpty { p.lifeSkills }
+        val skills = p.lifeSkills.sortedByDescending { it.isTrained }
         if (skills.isNotEmpty()) {
             item { SectionLabel("Life skills", Modifier.padding(top = 6.dp)) }
             item {
@@ -248,8 +254,8 @@ private fun ProfileBody(p: PlayerProfile, isMine: Boolean, onToggleMine: () -> U
                     skills.forEachIndexed { i, ls ->
                         if (i > 0) Spacer(Modifier.height(6.dp))
                         Row(Modifier.fillMaxWidth()) {
-                            Text(ls.skill, Modifier.weight(1f), color = BdoColors.onMuted)
-                            Text(ls.display, color = BdoColors.goldHi, fontWeight = FontWeight.SemiBold)
+                            Text(ls.skill, Modifier.weight(1f), color = if (ls.isTrained) BdoColors.onBg else BdoColors.onFaint)
+                            Text(ls.display, color = if (ls.isTrained) BdoColors.goldHi else BdoColors.onFaint, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
