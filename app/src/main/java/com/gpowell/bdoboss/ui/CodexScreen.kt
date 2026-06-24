@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -78,19 +79,27 @@ enum class CodexFeature(val title: String, val sub: String, val glyph: String) {
     }
 }
 
-/** Renders one Codex feature's content (no header — the host provides navigation). */
+/**
+ * Renders one Codex feature's content (no header — the host provides navigation).
+ * [onFavorite] (title, url) lets individual items (guides, tier lists, streamers) be saved.
+ */
 @Composable
-fun CodexFeatureContent(feature: CodexFeature, api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
+fun CodexFeatureContent(
+    feature: CodexFeature,
+    api: BdoAlertsApi,
+    onOpenUrl: (String) -> Unit,
+    onFavorite: (String, String) -> Unit = { _, _ -> },
+) {
     when (feature) {
         CodexFeature.LEADERBOARDS -> LeaderboardsScreen(api)
         CodexFeature.GRINDSPOTS -> GrindSpotsScreen(api)
         CodexFeature.CRON -> CronScreen(api)
         CodexFeature.LIGHTSTONES -> LightstonesScreen(api)
         CodexFeature.SKILLS -> SkillsScreen(api)
-        CodexFeature.TIERLISTS -> TierListsScreen(api, onOpenUrl)
-        CodexFeature.GUIDES -> GuidesScreen(api, onOpenUrl)
+        CodexFeature.TIERLISTS -> TierListsScreen(api, onOpenUrl, onFavorite)
+        CodexFeature.GUIDES -> GuidesScreen(api, onOpenUrl, onFavorite)
         CodexFeature.HOT -> HotMarketScreen(api)
-        CodexFeature.STREAMERS -> StreamersScreen(api, onOpenUrl)
+        CodexFeature.STREAMERS -> StreamersScreen(api, onOpenUrl, onFavorite)
     }
 }
 
@@ -279,20 +288,21 @@ private fun SkillsScreen(api: BdoAlertsApi) {
 
 // ── Tier Lists ────────────────────────────────────────────────────────────────
 @Composable
-private fun TierListsScreen(api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
+private fun TierListsScreen(api: BdoAlertsApi, onOpenUrl: (String) -> Unit, onFavorite: (String, String) -> Unit) {
     var lists by remember { mutableStateOf<List<com.gpowell.bdoboss.data.api.TierList>?>(null) }
     LaunchedEffect(Unit) { (api.tierLists() as? ApiResult.Success)?.let { lists = it.data.tierLists } }
     val l = lists
     if (l == null) { Loading(); return }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(l, key = { it.id }) { t ->
-            BdoCard(Modifier.fillMaxWidth(), onClick = { onOpenUrl("https://bdoalerts.net/tier-list/${t.shareCode}") }, contentPadding = PaddingValues(14.dp)) {
+            val url = "https://bdoalerts.net/tier-list/${t.shareCode}"
+            BdoCard(Modifier.fillMaxWidth(), onClick = { onOpenUrl(url) }, contentPadding = PaddingValues(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(t.title.ifBlank { "Tier list" }, fontWeight = FontWeight.SemiBold, color = BdoColors.onBg)
                         Text("by ${t.username} · ${t.tierType.uppercase()} · ${t.views} views", style = MaterialTheme.typography.bodySmall, color = BdoColors.onFaint)
                     }
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = BdoColors.onFaint)
+                    FavStar { onFavorite(t.title.ifBlank { "Tier list" }, url) }
                 }
             }
         }
@@ -301,23 +311,36 @@ private fun TierListsScreen(api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
 
 // ── Guides ────────────────────────────────────────────────────────────────────
 @Composable
-private fun GuidesScreen(api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
+private fun GuidesScreen(api: BdoAlertsApi, onOpenUrl: (String) -> Unit, onFavorite: (String, String) -> Unit) {
     var guides by remember { mutableStateOf<List<com.gpowell.bdoboss.data.api.Guide>?>(null) }
     LaunchedEffect(Unit) { (api.guides() as? ApiResult.Success)?.let { guides = it.data.guides } }
     val g = guides
     if (g == null) { Loading(); return }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(g, key = { it.id }) { gd ->
-            BdoCard(Modifier.fillMaxWidth(), onClick = { onOpenUrl("https://bdoalerts.net/guides/${gd.id}") }, contentPadding = PaddingValues(14.dp)) {
-                Text(gd.title, fontWeight = FontWeight.SemiBold, color = BdoColors.onBg)
-                Spacer(Modifier.height(2.dp))
-                Text("${gd.className.replaceFirstChar { it.uppercase() }} · ${gd.guideType} · by ${gd.author}", style = MaterialTheme.typography.bodySmall, color = BdoColors.goldHi)
-                if (gd.description.isNotBlank()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(gd.description, style = MaterialTheme.typography.bodySmall, color = BdoColors.onFaint, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            val url = "https://bdoalerts.net/guides/${gd.id}"
+            BdoCard(Modifier.fillMaxWidth(), onClick = { onOpenUrl(url) }, contentPadding = PaddingValues(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(gd.title, fontWeight = FontWeight.SemiBold, color = BdoColors.onBg)
+                        Spacer(Modifier.height(2.dp))
+                        Text("${gd.className.replaceFirstChar { it.uppercase() }} · ${gd.guideType} · by ${gd.author}", style = MaterialTheme.typography.bodySmall, color = BdoColors.goldHi)
+                        if (gd.description.isNotBlank()) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(gd.description, style = MaterialTheme.typography.bodySmall, color = BdoColors.onFaint, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    FavStar { onFavorite(gd.title, url) }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FavStar(onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(Icons.Outlined.StarBorder, "Save", tint = BdoColors.gold, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -351,7 +374,7 @@ private fun HotMarketScreen(api: BdoAlertsApi) {
 
 // ── Streamers ─────────────────────────────────────────────────────────────────
 @Composable
-private fun StreamersScreen(api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
+private fun StreamersScreen(api: BdoAlertsApi, onOpenUrl: (String) -> Unit, onFavorite: (String, String) -> Unit) {
     var all by remember { mutableStateOf<List<com.gpowell.bdoboss.data.api.Streamer>?>(null) }
     LaunchedEffect(Unit) { (api.streamers() as? ApiResult.Success)?.let { all = it.data.streamers } }
     val s = all
@@ -360,7 +383,8 @@ private fun StreamersScreen(api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (sorted.none { it.isLive }) item { SectionLabel("Nobody live right now") }
         items(sorted, key = { it.username }) { st ->
-            BdoCard(Modifier.fillMaxWidth(), onClick = { onOpenUrl("https://twitch.tv/${st.username}") }, contentPadding = PaddingValues(12.dp)) {
+            val url = "https://twitch.tv/${st.username}"
+            BdoCard(Modifier.fillMaxWidth(), onClick = { onOpenUrl(url) }, contentPadding = PaddingValues(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (st.avatarUrl.isNotBlank()) {
                         AsyncImage(st.avatarUrl, null, Modifier.size(38.dp).clip(RoundedCornerShape(50)))
@@ -373,14 +397,11 @@ private fun StreamersScreen(api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
                         }
                     }
                     if (st.isLive) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("● LIVE", style = MaterialTheme.typography.labelSmall, color = Color(0xFFE53935), fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.width(6.dp))
-                            Text(st.viewerCount.toString(), style = BdoType.num.copy(fontSize = 13.sp), color = BdoColors.goldHi)
-                        }
-                    } else {
-                        Text("offline", style = MaterialTheme.typography.labelSmall, color = BdoColors.onFaint)
+                        Text("● LIVE", style = MaterialTheme.typography.labelSmall, color = Color(0xFFE53935), fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(6.dp))
+                        Text(st.viewerCount.toString(), style = BdoType.num.copy(fontSize = 13.sp), color = BdoColors.goldHi)
                     }
+                    FavStar { onFavorite("${st.displayName} (Twitch)", url) }
                 }
             }
         }
