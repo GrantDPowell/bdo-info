@@ -1,6 +1,7 @@
 package com.gpowell.bdoboss.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -92,6 +93,27 @@ class FavoritesRepository(private val context: Context) {
 
     private object Keys {
         val FAVORITES = stringPreferencesKey("favorites_json")
+        val SEEDED = booleanPreferencesKey("seeded_defaults")
+    }
+
+    /**
+     * On first launch, pre-favorite the default player (OkimaSha). Runs once — guarded by a
+     * flag — so the user can delete it and it won't come back.
+     */
+    suspend fun seedDefaultsOnce() {
+        context.favoritesDataStore.edit { prefs ->
+            if (prefs[Keys.SEEDED] == true) return@edit
+            prefs[Keys.SEEDED] = true
+            val current = Favorite.decode(prefs[Keys.FAVORITES] ?: "")
+            if (Favorite.findMatch(current, FavoriteType.PLAYER, region = "na", familyName = "OkimaSha") == null) {
+                val newId = (current.maxOfOrNull { it.id } ?: 0L) + 1L
+                val fav = Favorite(
+                    id = newId, type = FavoriteType.PLAYER, title = "OkimaSha",
+                    addedAt = System.currentTimeMillis() / 1000L, region = "na", familyName = "OkimaSha",
+                )
+                prefs[Keys.FAVORITES] = Favorite.encode(current + fav)
+            }
+        }
     }
 
     // -----------------------------------------------------------------------

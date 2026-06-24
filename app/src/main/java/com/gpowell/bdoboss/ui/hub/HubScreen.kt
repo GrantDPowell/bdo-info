@@ -121,6 +121,8 @@ fun HubScreen(
     onOpenItem: (Int) -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenCredits: () -> Unit = {},
+    onOpenPlayer: (String) -> Unit = {},
+    onOpenGuild: (String) -> Unit = {},
     externalUrl: String? = null,
     onExternalUrlConsumed: () -> Unit = {},
     onExternalBrowserClosed: () -> Unit = {},
@@ -154,6 +156,7 @@ fun HubScreen(
             },
         )
         codexFeature != null -> Column(Modifier.fillMaxSize()) {
+            androidx.activity.compose.BackHandler { codexFeature = null }
             HubBackHeader(codexFeature!!.title) { codexFeature = null }
             com.gpowell.bdoboss.ui.CodexFeatureContent(codexFeature!!, api, onOpenUrl = { currentUrl = it })
         }
@@ -164,6 +167,8 @@ fun HubScreen(
             onOpenSettings = onOpenSettings,
             onOpenCredits = onOpenCredits,
             onOpenCodex = { codexFeature = it },
+            onOpenPlayer = onOpenPlayer,
+            onOpenGuild = onOpenGuild,
         )
     }
 }
@@ -189,6 +194,8 @@ private fun HubLauncher(
     onOpenSettings: () -> Unit,
     onOpenCredits: () -> Unit,
     onOpenCodex: (com.gpowell.bdoboss.ui.CodexFeature) -> Unit,
+    onOpenPlayer: (String) -> Unit,
+    onOpenGuild: (String) -> Unit,
 ) {
     val favorites by repo.favorites.collectAsState(initial = emptyList())
     var filter by rememberSaveable { mutableStateOf(FavFilter.ALL) }
@@ -245,7 +252,11 @@ private fun HubLauncher(
             }
         } else {
             items(filtered, key = { it.id }) { fav ->
-                FavoriteRow(fav = fav, onOpen = onOpen, onOpenItem = onOpenItem, onDelete = { scope.launch { repo.remove(fav.id) } })
+                FavoriteRow(
+                    fav = fav, onOpen = onOpen, onOpenItem = onOpenItem,
+                    onOpenPlayer = onOpenPlayer, onOpenGuild = onOpenGuild,
+                    onDelete = { scope.launch { repo.remove(fav.id) } },
+                )
             }
         }
 
@@ -321,6 +332,8 @@ private fun FavoriteRow(
     fav: Favorite,
     onOpen: (String) -> Unit,
     onOpenItem: (Int) -> Unit,
+    onOpenPlayer: (String) -> Unit,
+    onOpenGuild: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
     BdoCard(
@@ -329,7 +342,8 @@ private fun FavoriteRow(
             when (fav.type) {
                 FavoriteType.PAGE -> if (fav.url.isNotEmpty()) onOpen(fav.url)
                 FavoriteType.ITEM -> if (fav.itemId != 0) onOpenItem(fav.itemId) else if (fav.url.isNotEmpty()) onOpen(fav.url)
-                FavoriteType.PLAYER, FavoriteType.GUILD -> Unit
+                FavoriteType.PLAYER -> onOpenPlayer(fav.familyName)
+                FavoriteType.GUILD -> onOpenGuild(fav.familyName)
             }
         },
         contentPadding = PaddingValues(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
@@ -337,6 +351,8 @@ private fun FavoriteRow(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (fav.type == FavoriteType.ITEM && fav.itemId != 0) {
                 com.gpowell.bdoboss.ui.market.ItemIcon(itemId = fav.itemId, name = fav.title, grade = 0, size = 34.dp)
+            } else if (fav.type == FavoriteType.PLAYER) {
+                com.gpowell.bdoboss.ui.ClassIcon(fav.mainClass.ifBlank { fav.familyName }, size = 34.dp, grade = 3)
             } else {
                 Box(
                     Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(BdoColors.surface2),
@@ -344,7 +360,7 @@ private fun FavoriteRow(
                 ) {
                     Text(
                         when (fav.type) {
-                            FavoriteType.PAGE -> "🌐"
+                            FavoriteType.PAGE -> if (fav.url.startsWith("codex:")) "📖" else "🌐"
                             FavoriteType.ITEM -> "💎"
                             FavoriteType.PLAYER -> "👤"
                             FavoriteType.GUILD -> "⚔"

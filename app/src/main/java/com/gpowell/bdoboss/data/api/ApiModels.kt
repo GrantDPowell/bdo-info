@@ -147,11 +147,19 @@ data class MaintenanceStatus(
 // =============================================================================
 
 @Serializable
+data class PlayerSearchMain(
+    val name: String = "",
+    @SerialName("class") val className: String = "",
+    val level: Int = 0,
+)
+
+@Serializable
 data class PlayerSearchResult(
     @SerialName("family_name") val familyName: String = "",
     @SerialName("profile_target") val profileTarget: String = "",
     val guild: String? = null,
     val region: String = "",
+    @SerialName("main_character") val main: PlayerSearchMain? = null,
 )
 
 @Serializable

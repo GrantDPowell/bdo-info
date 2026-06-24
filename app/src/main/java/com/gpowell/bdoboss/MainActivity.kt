@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -179,6 +180,9 @@ class MainActivity : ComponentActivity() {
                 // when that browser closes we return to whichever tab opened it.
                 var pendingBrowserUrl by remember { mutableStateOf<String?>(null) }
                 var browserReturnTab by remember { mutableIntStateOf(4) }
+                // Hub favorite (player/guild) tap → jump to Profile and open that detail.
+                var pendingProfilePlayer by remember { mutableStateOf<String?>(null) }
+                var pendingProfileGuild by remember { mutableStateOf<String?>(null) }
                 // Single source of truth: the latest LIVE spawns (cached for offline/boot).
                 var liveSpawns by remember { mutableStateOf<List<Spawn>>(emptyList()) }
                 var lastArmedSig by remember { mutableStateOf("") }
@@ -187,6 +191,8 @@ class MainActivity : ComponentActivity() {
                 val live by liveSocket.state.collectAsState()
 
                 LaunchedEffect(Unit) {
+                    // First-run: pre-favorite the default player (OkimaSha).
+                    withContext(Dispatchers.IO) { favoritesRepo.seedDefaultsOnce() }
                     // Seed from the last-known live spawns (so the UI + alarms have data
                     // before the socket reconnects). The live feed refreshes these below.
                     liveSpawns = withContext(Dispatchers.IO) { LiveSpawnCache.load(this@MainActivity) }
@@ -222,6 +228,13 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.IO) { LiveSpawnCache.save(this@MainActivity, fresh) }
                     lifecycleScope.launch { AlarmScheduler.rearm(this@MainActivity.applicationContext) }
                 }
+
+                // Back navigation (so the back gesture never just drops out of the app):
+                // close the boss sheet first, otherwise fall back to the Bosses tab. Inner
+                // screens (Settings/Credits overlays, browser, Profile/Codex detail) register
+                // their own BackHandlers deeper in the tree and take priority over these.
+                BackHandler(enabled = selectedSpawn != null) { selectedSpawn = null }
+                BackHandler(enabled = selectedSpawn == null && !showSettings && !showCredits && tab != 0) { tab = 0 }
 
                 Box(Modifier.fillMaxSize().background(BdoBackground)) {
                     Scaffold(
@@ -263,7 +276,12 @@ class MainActivity : ComponentActivity() {
                                         onOpenSettings = { showSettings = true },
                                         onOpenUrl = { pendingBrowserUrl = it; browserReturnTab = 2; tab = 4 },
                                     )
-                                    3 -> ProfileScreen(onOpenSettings = { showSettings = true })
+                                    3 -> ProfileScreen(
+                                        onOpenSettings = { showSettings = true },
+                                        externalPlayer = pendingProfilePlayer,
+                                        externalGuild = pendingProfileGuild,
+                                        onExternalConsumed = { pendingProfilePlayer = null; pendingProfileGuild = null },
+                                    )
                                     4 -> HubScreen(
                                         onOpenItem = { itemId ->
                                             marketDetailItemId = itemId
@@ -271,6 +289,8 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onOpenSettings = { showSettings = true },
                                         onOpenCredits = { showCredits = true },
+                                        onOpenPlayer = { pendingProfilePlayer = it; tab = 3 },
+                                        onOpenGuild = { pendingProfileGuild = it; tab = 3 },
                                         externalUrl = pendingBrowserUrl,
                                         onExternalUrlConsumed = { pendingBrowserUrl = null },
                                         onExternalBrowserClosed = { tab = browserReturnTab },

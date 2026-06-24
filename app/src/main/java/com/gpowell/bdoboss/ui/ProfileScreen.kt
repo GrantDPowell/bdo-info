@@ -71,7 +71,12 @@ import kotlinx.coroutines.launch
 private const val REGION_P = "na"
 
 @Composable
-fun ProfileScreen(onOpenSettings: () -> Unit) {
+fun ProfileScreen(
+    onOpenSettings: () -> Unit,
+    externalPlayer: String? = null,
+    externalGuild: String? = null,
+    onExternalConsumed: () -> Unit = {},
+) {
     val ctx = LocalContext.current
     val settings = remember { SettingsRepository(ctx.applicationContext) }
     val favs = remember { FavoritesRepository(ctx.applicationContext) }
@@ -91,6 +96,15 @@ fun ProfileScreen(onOpenSettings: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(0) }
     var viewPlayer by rememberSaveable { mutableStateOf<String?>(null) }
     var viewGuild by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Opened from the Hub favorites (cross-tab): show that detail.
+    LaunchedEffect(externalPlayer, externalGuild) {
+        if (externalPlayer != null) { viewGuild = null; viewPlayer = externalPlayer; onExternalConsumed() }
+        else if (externalGuild != null) { viewPlayer = null; viewGuild = externalGuild; onExternalConsumed() }
+    }
+    androidx.activity.compose.BackHandler(enabled = viewPlayer != null || viewGuild != null) {
+        viewPlayer = null; viewGuild = null
+    }
 
     when {
         viewPlayer != null -> PlayerDetail(api, favs, viewPlayer!!) { viewPlayer = null }
@@ -201,9 +215,12 @@ private fun SearchTab(api: BdoAlertsApi, onOpenPlayer: (String) -> Unit) {
                 items(suggestions, key = { it.familyName }) { s ->
                     BdoCard(Modifier.fillMaxWidth(), onClick = { onOpenPlayer(s.familyName) }, contentPadding = PaddingValues(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Monogram(text = s.familyName.take(2).uppercase(), grade = 1, size = 36.dp)
+                            ClassIcon(s.main?.className ?: s.familyName, size = 36.dp, grade = 1)
                             Spacer(Modifier.width(12.dp))
-                            Text(s.familyName, Modifier.weight(1f), color = BdoColors.onBg, fontWeight = FontWeight.SemiBold)
+                            Column(Modifier.weight(1f)) {
+                                Text(s.familyName, color = BdoColors.onBg, fontWeight = FontWeight.SemiBold)
+                                s.main?.let { Text("${it.className} · Lv ${it.level}", style = MaterialTheme.typography.labelSmall, color = BdoColors.onFaint) }
+                            }
                             if (!s.guild.isNullOrBlank()) Text("⟨${s.guild}⟩", style = MaterialTheme.typography.labelSmall, color = BdoColors.onFaint)
                         }
                     }
@@ -290,8 +307,9 @@ private fun ProfileBody(p: PlayerProfile, isFav: Boolean, onToggleFav: () -> Uni
         // [profile]
         item {
             BdoCard(Modifier.fillMaxWidth(), facet = true, glow = true, contentPadding = PaddingValues(16.dp)) {
+                val mainClass = p.characters.firstOrNull { it.isMain }?.className ?: p.characters.firstOrNull()?.className ?: ""
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Monogram(text = p.familyName.take(2).uppercase(), grade = 3, size = 52.dp, glow = true)
+                    ClassIcon(mainClass.ifBlank { p.familyName }, size = 52.dp, grade = 3, glow = true)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(p.familyName, style = BdoType.display.copy(fontSize = 22.sp), color = BdoColors.onBg, maxLines = 1, overflow = TextOverflow.Ellipsis)
