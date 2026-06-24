@@ -21,8 +21,8 @@ android {
         applicationId = "org.okimasha.bdoinfo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 42
-        versionName = "1.4.1"
+        versionCode = 43
+        versionName = "1.5.0"
 
         // Baked-in BDO Alerts API key (from gitignored keystore.properties — NEVER in the
         // public repo). Empty on a fresh clone → app falls back to the Settings key entry.

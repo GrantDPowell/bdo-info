@@ -17,10 +17,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -124,7 +127,10 @@ fun HubScreen(
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val repo = remember { FavoritesRepository(ctx.applicationContext) }
+    val settings = remember { com.gpowell.bdoboss.data.SettingsRepository(ctx.applicationContext) }
+    val api = remember { com.gpowell.bdoboss.data.api.BdoAlertsApi(keyProvider = { settings.apiKey() }) }
     var currentUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var codexFeature by rememberSaveable { mutableStateOf<com.gpowell.bdoboss.ui.CodexFeature?>(null) }
     // True when the browser was opened from another tab (Events), so closing it returns there.
     var openedExternally by rememberSaveable { mutableStateOf(false) }
 
@@ -132,23 +138,46 @@ fun HubScreen(
         if (externalUrl != null) { currentUrl = externalUrl; openedExternally = true; onExternalUrlConsumed() }
     }
 
-    val url = currentUrl
-    if (url == null) {
-        HubLauncher(
-            repo = repo,
-            onOpen = { currentUrl = it },
-            onOpenItem = onOpenItem,
-            onOpenSettings = onOpenSettings,
-            onOpenCredits = onOpenCredits,
-        )
-    } else {
-        BrowserScreen(
-            initialUrl = url, repo = repo,
+    // A favorite/tile url of "codex:FEATURE" opens that in-app Codex screen; anything else
+    // opens in the shared browser.
+    val openUrlOrCodex: (String) -> Unit = { u ->
+        val f = com.gpowell.bdoboss.ui.CodexFeature.fromFavUrl(u)
+        if (u.startsWith("codex:") && f != null) codexFeature = f else currentUrl = u
+    }
+
+    when {
+        currentUrl != null -> BrowserScreen(
+            initialUrl = currentUrl!!, repo = repo,
             onExit = {
                 currentUrl = null
                 if (openedExternally) { openedExternally = false; onExternalBrowserClosed() }
             },
         )
+        codexFeature != null -> Column(Modifier.fillMaxSize()) {
+            HubBackHeader(codexFeature!!.title) { codexFeature = null }
+            com.gpowell.bdoboss.ui.CodexFeatureContent(codexFeature!!, api, onOpenUrl = { currentUrl = it })
+        }
+        else -> HubLauncher(
+            repo = repo,
+            onOpen = openUrlOrCodex,
+            onOpenItem = onOpenItem,
+            onOpenSettings = onOpenSettings,
+            onOpenCredits = onOpenCredits,
+            onOpenCodex = { codexFeature = it },
+        )
+    }
+}
+
+@Composable
+private fun HubBackHeader(title: String, onBack: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = BdoColors.goldHi)
+        }
+        Text(title, style = BdoType.display.copy(fontSize = 19.sp), color = BdoColors.onBg)
     }
 }
 
@@ -159,6 +188,7 @@ private fun HubLauncher(
     onOpenItem: (Int) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenCredits: () -> Unit,
+    onOpenCodex: (com.gpowell.bdoboss.ui.CodexFeature) -> Unit,
 ) {
     val favorites by repo.favorites.collectAsState(initial = emptyList())
     var filter by rememberSaveable { mutableStateOf(FavFilter.ALL) }
@@ -216,6 +246,32 @@ private fun HubLauncher(
         } else {
             items(filtered, key = { it.id }) { fav ->
                 FavoriteRow(fav = fav, onOpen = onOpen, onOpenItem = onOpenItem, onDelete = { scope.launch { repo.remove(fav.id) } })
+            }
+        }
+
+        // Codex — live reference tools (each row opens an in-app screen; ☆ pins the section)
+        item { SectionLabel("Codex · live reference", Modifier.padding(top = 8.dp)) }
+        items(com.gpowell.bdoboss.ui.CodexFeature.entries, key = { "codex_${it.name}" }) { f ->
+            val pinned = favorites.any { fav -> fav.type == FavoriteType.PAGE && fav.url == f.favUrl }
+            BdoCard(Modifier.fillMaxWidth(), onClick = { onOpenCodex(f) }, contentPadding = PaddingValues(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    com.gpowell.bdoboss.ui.theme.Monogram(text = f.glyph, grade = 2, size = 36.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(f.title, fontWeight = FontWeight.SemiBold, color = BdoColors.onBg)
+                        Text(f.sub, style = MaterialTheme.typography.bodySmall, color = BdoColors.onFaint)
+                    }
+                    IconButton(onClick = {
+                        scope.launch { repo.toggle(FavoriteType.PAGE, title = f.title, subtitle = "Codex", url = f.favUrl) }
+                    }) {
+                        Icon(
+                            if (pinned) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                            contentDescription = "Pin section",
+                            tint = if (pinned) BdoColors.goldHi else BdoColors.onFaint,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
             }
         }
 

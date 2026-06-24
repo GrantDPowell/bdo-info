@@ -23,9 +23,10 @@ data class Favorite(
     val addedAt: Long = 0L,       // epoch seconds; repo stamps on add
     val url: String = "",         // PAGE (also ITEM codex url)
     val itemId: Int = 0,          // ITEM
-    val region: String = "",      // PLAYER
-    val familyName: String = "",  // PLAYER
+    val region: String = "",      // PLAYER / GUILD
+    val familyName: String = "",  // PLAYER / GUILD (the name)
     val targetPrice: Long = 0L,   // ITEM — optional buy-target silver (0 = none)
+    val mainClass: String = "",   // PLAYER — main character's class (for the icon)
 ) {
     companion object {
         private val serializer = ListSerializer(serializer())
@@ -174,6 +175,7 @@ class FavoritesRepository(private val context: Context) {
         itemId: Int = 0,
         region: String = "",
         familyName: String = "",
+        mainClass: String = "",
     ): Boolean {
         var added = false
         context.favoritesDataStore.edit { prefs ->
@@ -204,6 +206,7 @@ class FavoritesRepository(private val context: Context) {
                     itemId = itemId,
                     region = region,
                     familyName = familyName,
+                    mainClass = mainClass,
                 )
                 prefs[Keys.FAVORITES] = Favorite.encode(current + newFav)
                 added = true

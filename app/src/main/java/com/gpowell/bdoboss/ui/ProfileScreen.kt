@@ -146,23 +146,27 @@ private fun FavoritesTab(repo: FavoritesRepository, onOpenPlayer: (String) -> Un
         if (players.isNotEmpty()) {
             item { SectionLabel("Players") }
             items(players, key = { it.id }) { f ->
-                FavRow(f, grade = 3, onOpen = { onOpenPlayer(f.familyName) }, onRemove = { scope.launch { repo.remove(f.id) } })
+                FavRow(f, isPlayer = true, onOpen = { onOpenPlayer(f.familyName) }, onRemove = { scope.launch { repo.remove(f.id) } })
             }
         }
         if (guilds.isNotEmpty()) {
             item { SectionLabel("Guilds", Modifier.padding(top = 6.dp)) }
             items(guilds, key = { it.id }) { f ->
-                FavRow(f, grade = 2, onOpen = { onOpenGuild(f.familyName) }, onRemove = { scope.launch { repo.remove(f.id) } })
+                FavRow(f, isPlayer = false, onOpen = { onOpenGuild(f.familyName) }, onRemove = { scope.launch { repo.remove(f.id) } })
             }
         }
     }
 }
 
 @Composable
-private fun FavRow(f: Favorite, grade: Int, onOpen: () -> Unit, onRemove: () -> Unit) {
+private fun FavRow(f: Favorite, isPlayer: Boolean, onOpen: () -> Unit, onRemove: () -> Unit) {
     BdoCard(Modifier.fillMaxWidth(), onClick = onOpen, contentPadding = PaddingValues(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Monogram(text = f.familyName.take(2).uppercase(), grade = grade, size = 40.dp)
+            if (isPlayer) {
+                ClassIcon(f.mainClass.ifBlank { f.familyName }, size = 40.dp, grade = 3)
+            } else {
+                Monogram(text = f.familyName.take(2).uppercase(), grade = 2, size = 40.dp)
+            }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(f.familyName, fontWeight = FontWeight.SemiBold, color = BdoColors.onBg)
@@ -261,9 +265,17 @@ private fun PlayerDetail(api: BdoAlertsApi, repo: FavoritesRepository, family: S
         BackHeader(family, onBack)
         when (val s = state) {
             null -> CenterHint("Loading $family…")
-            is ApiResult.Success -> ProfileBody(s.data, isFav) {
-                scope.launch {
-                    repo.toggle(FavoriteType.PLAYER, title = s.data.familyName, subtitle = s.data.guild ?: "", region = REGION_P, familyName = s.data.familyName)
+            is ApiResult.Success -> {
+                val mainClass = s.data.characters.firstOrNull { it.isMain }?.className
+                    ?: s.data.characters.firstOrNull()?.className ?: ""
+                ProfileBody(s.data, isFav) {
+                    scope.launch {
+                        repo.toggle(
+                            FavoriteType.PLAYER, title = s.data.familyName,
+                            subtitle = (s.data.guild?.takeIf { it.isNotBlank() }?.let { "⟨$it⟩" } ?: mainClass),
+                            region = REGION_P, familyName = s.data.familyName, mainClass = mainClass,
+                        )
+                    }
                 }
             }
             is ApiResult.HttpError -> CenterHint(if (s.code == 404) "No Family named \"$family\" on NA." else "Couldn't load (error ${s.code}).")
@@ -325,7 +337,7 @@ private fun ProfileBody(p: PlayerProfile, isFav: Boolean, onToggleFav: () -> Uni
             items(p.characters, key = { it.name + it.className }) { c ->
                 BdoCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Monogram(text = c.className.take(2).uppercase(), grade = if (c.isMain) 3 else 0, size = 38.dp)
+                        ClassIcon(c.className, size = 38.dp, grade = if (c.isMain) 3 else 0, glow = c.isMain)
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {

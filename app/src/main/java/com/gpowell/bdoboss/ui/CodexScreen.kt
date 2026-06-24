@@ -57,7 +57,8 @@ import com.gpowell.bdoboss.ui.theme.SectionLabel
 
 private const val REGION_C = "na"
 
-private enum class CodexFeature(val title: String, val sub: String, val glyph: String) {
+/** Codex reference features — now hosted inside the Hub (each is favoritable). */
+enum class CodexFeature(val title: String, val sub: String, val glyph: String) {
     LEADERBOARDS("Leaderboards", "Top gear score & life skills", "LB"),
     GRINDSPOTS("Grind Spots", "Silver/hr, AP/DP & caps", "GS"),
     CRON("Cron Costs", "Cost per enhancement level", "CR"),
@@ -66,87 +67,30 @@ private enum class CodexFeature(val title: String, val sub: String, val glyph: S
     TIERLISTS("Tier Lists", "Community class rankings", "TL"),
     GUIDES("Guides", "Community class guides", "GU"),
     HOT("Hot Market", "Most-traded items live", "HM"),
-    STREAMERS("Streamers", "Live BDO on Twitch", "TW"),
-}
+    STREAMERS("Streamers", "Live BDO on Twitch", "TW");
 
-@Composable
-fun CodexScreen(onOpenSettings: () -> Unit, onOpenUrl: (String) -> Unit = {}) {
-    val ctx = LocalContext.current
-    val repo = remember { SettingsRepository(ctx.applicationContext) }
-    val apiKey by repo.apiKeyFlow.collectAsState(initial = "")
+    /** Stable favorite/deep-link key, e.g. "codex:GRINDSPOTS". */
+    val favUrl: String get() = "codex:$name"
 
-    if (apiKey.isBlank()) {
-        LockedFeature(
-            title = "Codex",
-            blurb = "Leaderboards, grind spots, cron costs, lightstones, skills, tier lists, guides & streamers — powered by BDO Alerts.",
-            bullets = listOf("Top players & grind spot profits", "Cron-cost & lightstone references", "Class skills, guides & live streams"),
-            onOpenSettings = onOpenSettings,
-        )
-        return
-    }
-    val api = remember { BdoAlertsApi(keyProvider = { repo.apiKey() }) }
-    var feature by rememberSaveable { mutableStateOf<CodexFeature?>(null) }
-
-    when (val f = feature) {
-        null -> CodexLauncher(onPick = { feature = it })
-        else -> Column(Modifier.fillMaxSize()) {
-            CodexHeader(f.title) { feature = null }
-            when (f) {
-                CodexFeature.LEADERBOARDS -> LeaderboardsScreen(api)
-                CodexFeature.GRINDSPOTS -> GrindSpotsScreen(api)
-                CodexFeature.CRON -> CronScreen(api)
-                CodexFeature.LIGHTSTONES -> LightstonesScreen(api)
-                CodexFeature.SKILLS -> SkillsScreen(api)
-                CodexFeature.TIERLISTS -> TierListsScreen(api, onOpenUrl)
-                CodexFeature.GUIDES -> GuidesScreen(api, onOpenUrl)
-                CodexFeature.HOT -> HotMarketScreen(api)
-                CodexFeature.STREAMERS -> StreamersScreen(api, onOpenUrl)
-            }
-        }
+    companion object {
+        fun fromFavUrl(url: String): CodexFeature? =
+            url.removePrefix("codex:").let { n -> entries.firstOrNull { it.name == n } }
     }
 }
 
+/** Renders one Codex feature's content (no header — the host provides navigation). */
 @Composable
-private fun CodexLauncher(onPick: (CodexFeature) -> Unit) {
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Diamond(size = 10.dp, glow = true)
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text("CODEX", style = BdoType.display.copy(fontSize = 20.sp), color = BdoColors.onBg)
-                    Text("Live reference · NA", style = MaterialTheme.typography.bodySmall, color = BdoColors.onFaint)
-                }
-            }
-        }
-        items(CodexFeature.entries) { f ->
-            BdoCard(Modifier.fillMaxWidth(), onClick = { onPick(f) }, contentPadding = PaddingValues(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Monogram(text = f.glyph, grade = 2, size = 40.dp)
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(f.title, fontWeight = FontWeight.SemiBold, color = BdoColors.onBg)
-                        Text(f.sub, style = MaterialTheme.typography.bodySmall, color = BdoColors.onFaint)
-                    }
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = BdoColors.onFaint)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CodexHeader(title: String, onBack: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 6.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = BdoColors.goldHi) }
-        Text(title, style = BdoType.display.copy(fontSize = 19.sp), color = BdoColors.onBg)
+fun CodexFeatureContent(feature: CodexFeature, api: BdoAlertsApi, onOpenUrl: (String) -> Unit) {
+    when (feature) {
+        CodexFeature.LEADERBOARDS -> LeaderboardsScreen(api)
+        CodexFeature.GRINDSPOTS -> GrindSpotsScreen(api)
+        CodexFeature.CRON -> CronScreen(api)
+        CodexFeature.LIGHTSTONES -> LightstonesScreen(api)
+        CodexFeature.SKILLS -> SkillsScreen(api)
+        CodexFeature.TIERLISTS -> TierListsScreen(api, onOpenUrl)
+        CodexFeature.GUIDES -> GuidesScreen(api, onOpenUrl)
+        CodexFeature.HOT -> HotMarketScreen(api)
+        CodexFeature.STREAMERS -> StreamersScreen(api, onOpenUrl)
     }
 }
 

@@ -34,7 +34,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Public
@@ -78,7 +77,6 @@ import com.gpowell.bdoboss.live.WsBoss
 import com.gpowell.bdoboss.notify.AlarmScheduler
 import com.gpowell.bdoboss.ui.AppSettingsScreen
 import com.gpowell.bdoboss.ui.BossDetailSheet
-import com.gpowell.bdoboss.ui.CodexScreen
 import com.gpowell.bdoboss.ui.CreditsScreen
 import com.gpowell.bdoboss.ui.BossesScreen
 import com.gpowell.bdoboss.ui.EventsScreen
@@ -125,7 +123,6 @@ private val TOP_TABS = listOf(
     TopTab("Events", Icons.Outlined.CalendarMonth),
     TopTab("Profile", Icons.Outlined.Person),
     TopTab("Hub", Icons.Outlined.Public),
-    TopTab("Codex", Icons.Outlined.AutoStories),
 )
 
 class MainActivity : ComponentActivity() {
@@ -277,10 +274,6 @@ class MainActivity : ComponentActivity() {
                                         externalUrl = pendingBrowserUrl,
                                         onExternalUrlConsumed = { pendingBrowserUrl = null },
                                         onExternalBrowserClosed = { tab = browserReturnTab },
-                                    )
-                                    5 -> CodexScreen(
-                                        onOpenSettings = { showSettings = true },
-                                        onOpenUrl = { pendingBrowserUrl = it; browserReturnTab = 5; tab = 4 },
                                     )
                                 }
                             }
