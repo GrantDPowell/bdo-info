@@ -12,7 +12,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 @Serializable
-enum class FavoriteType { PAGE, ITEM, PLAYER }
+enum class FavoriteType { PAGE, ITEM, PLAYER, GUILD }
 
 @Serializable
 data class Favorite(
@@ -72,7 +72,8 @@ data class Favorite(
                     url.isNotEmpty() && existing.itemId == 0 && existing.url == url
                 }
 
-                FavoriteType.PLAYER ->
+                // PLAYER + GUILD share the same natural key (region + name, in familyName).
+                FavoriteType.PLAYER, FavoriteType.GUILD ->
                     existing.region.equals(region, ignoreCase = true) &&
                         existing.familyName.equals(familyName, ignoreCase = true)
             }

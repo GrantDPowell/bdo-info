@@ -273,7 +273,7 @@ private fun FavoriteRow(
             when (fav.type) {
                 FavoriteType.PAGE -> if (fav.url.isNotEmpty()) onOpen(fav.url)
                 FavoriteType.ITEM -> if (fav.itemId != 0) onOpenItem(fav.itemId) else if (fav.url.isNotEmpty()) onOpen(fav.url)
-                FavoriteType.PLAYER -> Unit
+                FavoriteType.PLAYER, FavoriteType.GUILD -> Unit
             }
         },
         contentPadding = PaddingValues(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
@@ -291,6 +291,7 @@ private fun FavoriteRow(
                             FavoriteType.PAGE -> "🌐"
                             FavoriteType.ITEM -> "💎"
                             FavoriteType.PLAYER -> "👤"
+                            FavoriteType.GUILD -> "⚔"
                         },
                         fontSize = 17.sp,
                     )

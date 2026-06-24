@@ -114,7 +114,12 @@ class SettingsRepository(private val context: Context) {
     // Wire keyProvider = settingsRepository::apiKey into BdoAlertsApi.
     // -------------------------------------------------------------------------
 
-    val apiKeyFlow: Flow<String> = context.dataStore.data.map { it[Keys.API_KEY] ?: "" }
+    // A stored key wins; otherwise fall back to the baked-in BuildConfig key (blank on a
+    // fresh clone, so others still get the Settings entry / locked screens).
+    val apiKeyFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[Keys.API_KEY]?.takeIf { it.isNotBlank() }
+            ?: com.gpowell.bdoboss.BuildConfig.BDO_API_KEY
+    }
 
     suspend fun apiKey(): String = apiKeyFlow.first()
 

@@ -93,14 +93,14 @@ fun EventsScreen(onOpenSettings: () -> Unit, onOpenUrl: (String) -> Unit = {}) {
 
     Column(Modifier.fillMaxSize()) {
         BdoSubTabs(
-            tabs = listOf("News", "Timeline", "Coupons", "Maintenance"),
+            tabs = listOf("Timeline", "News", "Coupons", "Maintenance"),
             selected = tab,
             onSelect = { tab = it },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
         when (tab) {
-            0 -> NewsTab(api, onOpenUrl)
-            1 -> TimelineTab(api, onOpenUrl)
+            0 -> TimelineTab(api, onOpenUrl)
+            1 -> NewsTab(api, onOpenUrl)
             2 -> CouponsTab(api)
             else -> MaintenanceTab(api)
         }
