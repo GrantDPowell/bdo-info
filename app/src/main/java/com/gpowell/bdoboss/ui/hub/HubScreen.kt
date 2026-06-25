@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
@@ -133,7 +134,7 @@ private enum class FavFilter(val label: String, val types: Set<FavoriteType>?) {
     PAGES("Pages", setOf(FavoriteType.PAGE)),
 }
 
-private enum class HubView { HOME, FAVORITES, CODEX, WEBTOOLS }
+private enum class HubView { HOME, FAVORITES, CODEX, WEBTOOLS, MAP }
 
 @Composable
 fun HubScreen(
@@ -194,9 +195,11 @@ fun HubScreen(
             BackHandler { view = HubView.HOME }
             WebToolsScreen(onBack = { view = HubView.HOME }, onOpen = { currentUrl = it })
         }
+        view == HubView.MAP -> com.gpowell.bdoboss.ui.MapScreen(onBack = { view = HubView.HOME })
         else -> HubHome(
             repo = repo,
             onFavorites = { view = HubView.FAVORITES },
+            onMap = { view = HubView.MAP },
             onCodex = { view = HubView.CODEX },
             onWebTools = { view = HubView.WEBTOOLS },
             onSettings = onOpenSettings,
@@ -210,6 +213,7 @@ fun HubScreen(
 private fun HubHome(
     repo: FavoritesRepository,
     onFavorites: () -> Unit,
+    onMap: () -> Unit,
     onCodex: () -> Unit,
     onWebTools: () -> Unit,
     onSettings: () -> Unit,
@@ -229,6 +233,7 @@ private fun HubHome(
             }
         }
         item { SectionCard(Icons.Outlined.Bookmark, "Favorites", if (favCount == 0) "Nothing saved yet" else "$favCount saved · players, guilds, items, pages", onFavorites) }
+        item { SectionCard(Icons.Outlined.Map, "World Map", "Offline pan & zoom map of the BDO world", onMap) }
         item { SectionCard(Icons.Outlined.AutoStories, "Codex", "Leaderboards, grind spots, cron, lightstones, skills…", onCodex) }
         item { SectionCard(Icons.Outlined.Public, "Web Tools", "$webCount sites · planners, calculators, maps (shared login)", onWebTools) }
         item {
