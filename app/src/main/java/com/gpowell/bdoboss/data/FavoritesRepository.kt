@@ -174,6 +174,21 @@ class FavoritesRepository(private val context: Context) {
         return result!!
     }
 
+    /**
+     * Remember a favorited player's main class (so the Favorites list can show their class
+     * portrait). No-op if the player isn't favorited or the class is already stored.
+     */
+    suspend fun updateMainClass(region: String, familyName: String, mainClass: String) {
+        if (mainClass.isBlank()) return
+        context.favoritesDataStore.edit { prefs ->
+            val current = Favorite.decode(prefs[Keys.FAVORITES] ?: "")
+            val match = Favorite.findMatch(current, FavoriteType.PLAYER, region = region, familyName = familyName)
+            if (match != null && match.mainClass != mainClass) {
+                prefs[Keys.FAVORITES] = Favorite.encode(current.map { if (it.id == match.id) it.copy(mainClass = mainClass) else it })
+            }
+        }
+    }
+
     // -----------------------------------------------------------------------
     // remove — removes by id; no-op if id not found
     // -----------------------------------------------------------------------

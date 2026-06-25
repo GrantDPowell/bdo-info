@@ -63,7 +63,7 @@ fun classDrawable(className: String): Int? = when (className.lowercase().filter 
 fun ClassIcon(className: String, size: Dp = 38.dp, grade: Int = 0, glow: Boolean = false) {
     val res = classDrawable(className)
     if (res != null) {
-        // Portraits are busts — crop square biased to the top so the face shows.
+        // Show the whole portrait (zoomed out), not a tight face crop.
         Image(
             painter = painterResource(res),
             contentDescription = className,
@@ -71,8 +71,7 @@ fun ClassIcon(className: String, size: Dp = 38.dp, grade: Int = 0, glow: Boolean
                 .size(size)
                 .clip(RoundedCornerShape(9.dp))
                 .background(BdoColors.surface2),
-            alignment = androidx.compose.ui.Alignment.TopCenter,
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
         )
     } else {
         Monogram(text = className.take(2).uppercase(), grade = grade, size = size, glow = glow)

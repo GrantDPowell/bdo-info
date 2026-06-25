@@ -117,7 +117,7 @@ fun ProfileScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             )
             when (tab) {
-                0 -> FavoritesTab(favs, onOpenPlayer = { viewPlayer = it }, onOpenGuild = { viewGuild = it })
+                0 -> FavoritesTab(favs, api, onOpenPlayer = { viewPlayer = it }, onOpenGuild = { viewGuild = it })
                 1 -> SearchTab(api) { viewPlayer = it }
                 else -> GuildsTab(api) { viewGuild = it }
             }
@@ -138,11 +138,24 @@ private fun BackHeader(title: String, onBack: () -> Unit) {
 
 // ── Favorites ─────────────────────────────────────────────────────────────────
 @Composable
-private fun FavoritesTab(repo: FavoritesRepository, onOpenPlayer: (String) -> Unit, onOpenGuild: (String) -> Unit) {
+private fun FavoritesTab(repo: FavoritesRepository, api: BdoAlertsApi, onOpenPlayer: (String) -> Unit, onOpenGuild: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val all by repo.favorites.collectAsState(initial = emptyList())
     val players = all.filter { it.type == FavoriteType.PLAYER }
     val guilds = all.filter { it.type == FavoriteType.GUILD }
+
+    // Fill in missing class portraits for favorited players (e.g. the seeded OkimaSha) by
+    // fetching each once and remembering the main class — so the list shows their portrait.
+    val attempted = remember { mutableSetOf<String>() }
+    LaunchedEffect(players.size) {
+        players.filter { it.mainClass.isBlank() && attempted.add(it.familyName.lowercase()) }.forEach { f ->
+            (api.playerProfile(REGION_P, f.familyName) as? ApiResult.Success)?.let { p ->
+                val mc = p.data.characters.firstOrNull { it.isMain }?.className
+                    ?: p.data.characters.firstOrNull()?.className ?: ""
+                repo.updateMainClass(REGION_P, f.familyName, mc)
+            }
+        }
+    }
 
     if (players.isEmpty() && guilds.isEmpty()) {
         Box(Modifier.fillMaxSize(), Alignment.Center) {
@@ -274,9 +287,32 @@ private fun GuildsTab(api: BdoAlertsApi, onOpenGuild: (String) -> Unit) {
 private fun PlayerDetail(api: BdoAlertsApi, repo: FavoritesRepository, family: String, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<ApiResult<PlayerProfile>?>(null) }
+    var reload by remember { mutableStateOf(0) }
     val favs by repo.favorites.collectAsState(initial = emptyList())
     val isFav = favs.any { it.type == FavoriteType.PLAYER && it.familyName.equals(family, true) }
-    LaunchedEffect(family) { state = null; state = api.playerProfile(REGION_P, family) }
+
+    // The player endpoint scrapes the (bot-protected) official profile, so it's flaky —
+    // retry a couple of times before showing an error, then remember the main class.
+    LaunchedEffect(family, reload) {
+        state = null
+        var r = api.playerProfile(REGION_P, family)
+        var tries = 0
+        while (r !is ApiResult.Success && r !is ApiResult.HttpError && tries < 3) {
+            kotlinx.coroutines.delay(500)
+            r = api.playerProfile(REGION_P, family)
+            tries++
+        }
+        // one extra retry even on a 5xx http error
+        if (r is ApiResult.HttpError && r.code >= 500 && tries < 4) {
+            kotlinx.coroutines.delay(500); r = api.playerProfile(REGION_P, family)
+        }
+        state = r
+        if (r is ApiResult.Success) {
+            val mc = r.data.characters.firstOrNull { it.isMain }?.className
+                ?: r.data.characters.firstOrNull()?.className ?: ""
+            repo.updateMainClass(REGION_P, family, mc)
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         BackHeader(family, onBack)
@@ -295,9 +331,23 @@ private fun PlayerDetail(api: BdoAlertsApi, repo: FavoritesRepository, family: S
                     }
                 }
             }
-            is ApiResult.HttpError -> CenterHint(if (s.code == 404) "No Family named \"$family\" on NA." else "Couldn't load (error ${s.code}).")
-            else -> CenterHint("Couldn't load.")
+            is ApiResult.HttpError ->
+                if (s.code == 404) CenterHint("No Family named \"$family\" on NA.")
+                else RetryHint("Couldn't load $family (error ${s.code}).") { reload++ }
+            else -> RetryHint("Couldn't load $family.") { reload++ }
         }
+    }
+}
+
+@Composable
+private fun RetryHint(text: String, onRetry: () -> Unit) {
+    Column(Modifier.fillMaxSize().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text, color = BdoColors.onMuted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Spacer(Modifier.height(12.dp))
+        androidx.compose.material3.Button(
+            onClick = onRetry,
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = BdoColors.gold, contentColor = BdoColors.onGold),
+        ) { Text("Retry") }
     }
 }
 
