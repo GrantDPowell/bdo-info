@@ -35,15 +35,28 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.sp
 import com.gpowell.bdoboss.ui.theme.BdoColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlin.math.log2
 import kotlin.math.roundToInt
 
 private const val MAX_Z = 5                       // deepest bundled tile level
 private const val TILE = 256f
 private val WORLD = TILE * (1 shl MAX_Z)          // 8192 — map size in "world" px
+
+/** A map marker (node/town) in normalized Web-Mercator coords [0,1]. */
+@Serializable
+private data class MapNode(val n: String = "", val t: String = "", val nx: Float = 0f, val ny: Float = 0f)
 
 /**
  * Native pan/pinch-zoom tile map of the BDO world. Tiles (z/x/y JPEGs, z1–5) are bundled in
@@ -57,9 +70,20 @@ fun MapScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val cache = remember { mutableStateMapOf<String, ImageBitmap>() }
     val loading = remember { mutableSetOf<String>() }
+    val measurer = rememberTextMeasurer()
 
     var scale by remember { mutableFloatStateOf(0f) }      // screen px per world px
     var trans by remember { mutableStateOf(Offset.Zero) }  // screen pos of world (0,0)
+    var nodes by remember { mutableStateOf<List<MapNode>>(emptyList()) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        nodes = withContext(Dispatchers.IO) {
+            runCatching {
+                ctx.assets.open("map/nodes.json").bufferedReader().use {
+                    Json { ignoreUnknownKeys = true }.decodeFromString<List<MapNode>>(it.readText())
+                }
+            }.getOrDefault(emptyList())
+        }
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF0A0D12))) {
         val wPx = constraints.maxWidth.toFloat()
@@ -124,6 +148,34 @@ fun MapScreen(onBack: () -> Unit) {
                             }
                         }
                     }
+                }
+            }
+
+            // ── markers: towns / nodes ──
+            val labelZoom = tz >= 4          // only show labels once zoomed in (avoids clutter)
+            nodes.forEach { node ->
+                val px = node.nx * WORLD * scale + trans.x
+                val py = node.ny * WORLD * scale + trans.y
+                if (px < -20f || py < -20f || px > size.width + 20f || py > size.height + 20f) return@forEach
+                val (color, radius, important) = when (node.t) {
+                    "city" -> Triple(BdoColors.goldHi, 6f, true)
+                    "village" -> Triple(Color(0xFF7FD4FF), 5f, true)
+                    "gateway" -> Triple(Color(0xFFB8B8C8), 4f, true)
+                    "trade" -> Triple(BdoColors.up, 4f, false)
+                    "office" -> Triple(Color(0xFFB07CF0), 4f, false)
+                    "danger" -> Triple(BdoColors.down, 4f, false)
+                    else -> Triple(BdoColors.gold.copy(alpha = 0.7f), 2.6f, false)  // connect
+                }
+                drawCircle(Color.Black.copy(alpha = 0.5f), radius + 1.5f, Offset(px, py))
+                drawCircle(color, radius, Offset(px, py))
+                if (node.n.isNotEmpty() && (node.t == "city" || (important && labelZoom))) {
+                    val style = TextStyle(
+                        color = Color.White, fontSize = if (node.t == "city") 12.sp else 10.sp,
+                        fontWeight = if (node.t == "city") FontWeight.Bold else FontWeight.Medium,
+                        shadow = Shadow(Color.Black, blurRadius = 6f),
+                    )
+                    val tl = measurer.measure(node.n, style)
+                    drawText(tl, topLeft = Offset(px - tl.size.width / 2f, py - radius - tl.size.height - 2f))
                 }
             }
         }
