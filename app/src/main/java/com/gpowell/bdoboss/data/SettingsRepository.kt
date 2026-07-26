@@ -84,6 +84,9 @@ class SettingsRepository(private val context: Context) {
         // The user's own BDO Family name, so Profile auto-loads "my profile".
         val MY_FAMILY = stringPreferencesKey("my_family_name")
 
+        // Coupon codes the user has marked as redeemed.
+        val REDEEMED_COUPONS = stringSetPreferencesKey("redeemed_coupons")
+
         // Orrery animated effects (gold dust, radar sweep, ticking prices, …). Default on.
         val EFFECTS = booleanPreferencesKey("effects_enabled")
 
@@ -134,6 +137,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setMyFamily(value: String) {
         context.dataStore.edit { it[Keys.MY_FAMILY] = value.trim() }
+    }
+
+    // -------------------------------------------------------------------------
+    // Redeemed coupon codes — persisted so the Coupons tab can mark/filter them.
+    // -------------------------------------------------------------------------
+    val redeemedCouponsFlow: Flow<Set<String>> = context.dataStore.data.map { it[Keys.REDEEMED_COUPONS] ?: emptySet() }
+
+    suspend fun setCouponRedeemed(code: String, redeemed: Boolean) {
+        context.dataStore.edit { prefs ->
+            val cur = prefs[Keys.REDEEMED_COUPONS] ?: emptySet()
+            prefs[Keys.REDEEMED_COUPONS] = if (redeemed) cur + code else cur - code
+        }
     }
 
     val settings: Flow<NotificationSettings> = context.dataStore.data.map { it.toSettings() }

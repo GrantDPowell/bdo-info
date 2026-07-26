@@ -79,17 +79,29 @@ data class PlayerProfile(
 // =============================================================================
 
 @Serializable
+data class RewardsStructured(
+    val categories: List<String> = emptyList(),
+)
+
+@Serializable
 data class Coupon(
     val code: String = "",
     val rewards: String = "",
     val description: String = "",
     @SerialName("expiry_date") val expiryDate: String? = null,
     @SerialName("is_expired") val isExpired: Boolean = false,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("rewards_structured") val rewardsStructured: RewardsStructured? = null,
 ) {
     /** Platform label ("PC"/"Console"/"Both"). */
     val platform: String get() = description
     /** Expiry text, or blank when the coupon has no published expiry. */
     val expires: String get() = expiryDate.orEmpty()
+    /** Reward categories (enhancement/consumable/buff/…), if the API structured them. */
+    val categories: List<String> get() = rewardsStructured?.categories ?: emptyList()
+    /** True if this coupon is available on [plat] ("PC"/"Console"), counting "Both". */
+    fun onPlatform(plat: String): Boolean =
+        description.equals(plat, true) || description.equals("Both", true)
 }
 
 @Serializable

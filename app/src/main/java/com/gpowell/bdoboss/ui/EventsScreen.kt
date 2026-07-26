@@ -25,8 +25,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -40,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.gpowell.bdoboss.data.SettingsRepository
+import kotlinx.coroutines.launch
 import com.gpowell.bdoboss.data.api.ApiResult
 import com.gpowell.bdoboss.data.api.BdoAlertsApi
 import com.gpowell.bdoboss.data.api.Coupon
@@ -101,7 +105,7 @@ fun EventsScreen(onOpenSettings: () -> Unit, onOpenUrl: (String) -> Unit = {}) {
         when (tab) {
             0 -> TimelineTab(api, onOpenUrl)
             1 -> NewsTab(api, onOpenUrl)
-            2 -> CouponsTab(api)
+            2 -> CouponsTab(api, repo)
             else -> MaintenanceTab(api)
         }
     }
@@ -109,40 +113,110 @@ fun EventsScreen(onOpenSettings: () -> Unit, onOpenUrl: (String) -> Unit = {}) {
 
 // ── Coupons ─────────────────────────────────────────────────────────────────
 @Composable
-private fun CouponsTab(api: BdoAlertsApi) {
+private fun CouponsTab(api: BdoAlertsApi, settings: SettingsRepository) {
+    val scope = rememberCoroutineScope()
     var reload by remember { mutableIntStateOf(0) }
     var state by remember { mutableStateOf<ApiResult<List<Coupon>>?>(null) }
     LaunchedEffect(reload) { state = null; state = api.coupons() }
     val clipboard = LocalClipboardManager.current
+    val redeemed by settings.redeemedCouponsFlow.collectAsState(initial = emptySet())
+    var platform by rememberSaveable { mutableStateOf("PC") }      // PC | Console
+    var filter by rememberSaveable { mutableIntStateOf(0) }        // 0 all · 1 to redeem · 2 redeemed
 
-    ApiList(
-        state = state,
-        empty = "No active coupons right now.",
-        onRetry = { reload++ },
-    ) { coupons ->
-        items(coupons, key = { it.code }) { c ->
-            BdoCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = PaddingValues(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(c.code, style = BdoType.num.copy(fontSize = 16.sp), color = BdoColors.goldHi, modifier = Modifier.weight(1f))
-                    IconButton(onClick = { clipboard.setText(AnnotatedString(c.code)) }) {
-                        Icon(Icons.Filled.ContentCopy, contentDescription = "Copy code", tint = BdoColors.gold, modifier = Modifier.size(18.dp))
-                    }
-                }
-                if (c.rewards.isNotBlank()) {
-                    Text(c.rewards, style = MaterialTheme.typography.bodyMedium, color = BdoColors.onBg)
-                }
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (c.platform.isNotBlank()) {
-                        Text(c.platform, style = MaterialTheme.typography.labelSmall, color = BdoColors.onFaint)
-                        if (c.expires.isNotBlank()) { Spacer(Modifier.width(6.dp)); Diamond(size = 4.dp, color = BdoColors.onFaint); Spacer(Modifier.width(6.dp)) }
-                    }
-                    if (c.expires.isNotBlank()) {
-                        Text("expires ${c.expires}", style = MaterialTheme.typography.labelSmall, color = BdoColors.onFaint)
+    Column(Modifier.fillMaxSize()) {
+        BdoSubTabs(
+            tabs = listOf("PC", "Console"),
+            selected = if (platform == "PC") 0 else 1,
+            onSelect = { platform = if (it == 0) "PC" else "Console" },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        )
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BdoChip("All", active = filter == 0, onClick = { filter = 0 })
+            BdoChip("To redeem", active = filter == 1, onClick = { filter = 1 })
+            BdoChip("Redeemed", active = filter == 2, onClick = { filter = 2 })
+        }
+        when (val s = state) {
+            null -> LoadingLine()
+            is ApiResult.Success -> {
+                val list = s.data
+                    .filter { it.onPlatform(platform) }
+                    .filter { when (filter) { 1 -> it.code !in redeemed; 2 -> it.code in redeemed; else -> true } }
+                if (list.isEmpty()) CenterNote(
+                    when (filter) { 1 -> "Nothing left to redeem on $platform 🎉"; 2 -> "No redeemed coupons yet."; else -> "No active $platform coupons right now." },
+                )
+                else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 4.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(list, key = { it.code }) { c ->
+                        CouponCard(
+                            c = c, isRedeemed = c.code in redeemed,
+                            onCopy = { clipboard.setText(AnnotatedString(c.code)) },
+                            onToggle = { scope.launch { settings.setCouponRedeemed(c.code, c.code !in redeemed) } },
+                        )
                     }
                 }
             }
+            else -> Box(Modifier.fillMaxSize().padding(16.dp), Alignment.TopCenter) { ErrorLine(s) { reload++ } }
         }
+    }
+}
+
+@Composable
+private fun CouponCard(c: Coupon, isRedeemed: Boolean, onCopy: () -> Unit, onToggle: () -> Unit) {
+    BdoCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = PaddingValues(start = 14.dp, end = 6.dp, top = 12.dp, bottom = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                c.code, modifier = Modifier.weight(1f),
+                style = BdoType.num.copy(fontSize = 16.sp),
+                color = if (isRedeemed) BdoColors.onFaint else BdoColors.goldHi,
+                textDecoration = if (isRedeemed) androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
+            )
+            IconButton(onClick = onCopy) {
+                Icon(Icons.Filled.ContentCopy, "Copy code", tint = BdoColors.gold, modifier = Modifier.size(18.dp))
+            }
+            IconButton(onClick = onToggle) {
+                Icon(
+                    if (isRedeemed) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                    contentDescription = if (isRedeemed) "Mark not redeemed" else "Mark redeemed",
+                    tint = if (isRedeemed) BdoColors.up else BdoColors.onFaint, modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+        if (c.rewards.isNotBlank()) {
+            Text(c.rewards, style = MaterialTheme.typography.bodyMedium, color = if (isRedeemed) BdoColors.onFaint else BdoColors.onBg)
+        }
+        if (c.categories.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                c.categories.forEach { cat ->
+                    Text(
+                        cat.replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.labelSmall, color = BdoColors.goldHi,
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(BdoColors.gold.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        val bits = buildList {
+            if (c.platform.isNotBlank()) add(c.platform)
+            addedLabel(c.createdAt).takeIf { it.isNotBlank() }?.let { add("added $it") }
+            if (c.expires.isNotBlank()) add("expires ${c.expires}")
+        }
+        if (bits.isNotEmpty()) Text(bits.joinToString("  ·  "), style = MaterialTheme.typography.labelSmall, color = BdoColors.onFaint)
+    }
+}
+
+/** "added" relative label from an ISO-local created_at timestamp. */
+private fun addedLabel(iso: String?): String {
+    if (iso.isNullOrBlank()) return ""
+    val dt = runCatching { java.time.LocalDateTime.parse(iso) }.getOrNull() ?: return ""
+    val days = java.time.Duration.between(dt, java.time.LocalDateTime.now()).toDays()
+    return when {
+        days <= 0L -> "today"
+        days == 1L -> "yesterday"
+        days < 7L -> "${days}d ago"
+        days < 30L -> "${days / 7}w ago"
+        days < 365L -> "${days / 30}mo ago"
+        else -> dt.format(java.time.format.DateTimeFormatter.ofPattern("MMM yyyy"))
     }
 }
 
